@@ -86,10 +86,10 @@ def categorizar_despesas_por_palavras_chave(texto_completo, categoria_auto=''):
         '🏠 Investimento - LCI/LCA': ['APLICACAO LCI', 'APLICACAO LCA', 'LCI', 'LCA'],
         '🏛️ Investimento - Tesouro': ['APLICACAO TESOURO', 'TESOURO'],
         '📊 Investimento - Fundos': ['APLICACAO FUNDO', 'FUNDO'],
-        '💎 Investimento - Outros': ['APLICACAO ATIVO', 'ATIVO'],
         '🥇 Investimento - Ourocap': ['OUROCAP', 'APLICACAO OUROCAP'],
         '💰 Investimentos Diversos': ['APLICACAO'],
         '📈 Investimento - Ações B3': ['B3', 'ACAO', 'ACOES', 'COMPRA ACAO', 'LIQUIDACAO COMPRA'],
+        '💎 Investimento - Outros': ['ATIVO'],
         
         # Cartões e Débitos
         '💳 Cartão de Crédito': ['CARTAO CREDITO', 'CREDITO CARTAO', 'COMPRA CARTAO'],
