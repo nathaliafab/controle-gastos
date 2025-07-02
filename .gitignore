@@ -1,8 +1,8 @@
 # Configuration files with sensitive data
-#config.json
+config.json
 
 # Extract files (contain sensitive financial data)
-#extratos/
+extratos/
 *.csv
 *.pdf
 *.xls
