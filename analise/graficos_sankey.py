@@ -171,11 +171,24 @@ def configurar_nos_e_cores(nodes_labels, sources, targets, values):
         total_incoming = sum(values[j] for j, target_id in enumerate(targets) if target_id == i)
         total_outgoing = sum(values[j] for j, source_id in enumerate(sources) if source_id == i)
         
-        if label.startswith('Banco:') or label == 'Receita Total':
+        if label == 'Receita Total':
+            # Receita Total: mostra o que sai (total de receitas)
             node_totals[i] = total_outgoing
+        elif label.startswith('Banco:'):
+            # Bancos no gráfico individual: sempre mostra outgoing (total de receitas geradas)
+            # Bancos no gráfico geral: armazena tanto incoming quanto outgoing
+            # Detecta se é gráfico geral pela presença de "Receita Total"
+            is_geral = any('Receita Total' in l for l in nodes_labels)
+            if is_geral:
+                # No gráfico geral, armazenamos ambos os valores
+                node_totals[i] = {'incoming': total_incoming, 'outgoing': total_outgoing}
+            else:
+                node_totals[i] = total_outgoing  # Gráfico individual: mostra receitas geradas
         elif label.startswith('Dinheiro Disponível (no '):
+            # Dinheiro Disponível: mostra o que entra (receitas)
             node_totals[i] = total_incoming
         else:
+            # Receitas Detalhadas e Despesas: mostra o que entra
             node_totals[i] = total_incoming
     
     # Configurar cores e labels finais
@@ -204,7 +217,18 @@ def configurar_nos_e_cores(nodes_labels, sources, targets, values):
         else:
             cores_nos.append('skyblue')  # Fallback
         
-        final_nodes_labels.append(f"{icon} {nome_limpo}<br>R$ {node_totals.get(i, 0):,.0f}")
+        # Criar o label final do nó
+        if label.startswith('Banco:') and isinstance(node_totals.get(i), dict):
+            # Banco no gráfico geral - mostra entrada e saída
+            incoming = node_totals[i]['incoming']
+            outgoing = node_totals[i]['outgoing']
+            final_nodes_labels.append(f"{icon} {nome_limpo}<br>Entrou: R$ {incoming:,.0f}<br>Saiu: R$ {outgoing:,.0f}")
+        else:
+            # Outros nós ou banco individual - mostra apenas um valor
+            valor = node_totals.get(i, 0)
+            if isinstance(valor, dict):
+                valor = valor['incoming']  # Fallback se algo der errado
+            final_nodes_labels.append(f"{icon} {nome_limpo}<br>R$ {valor:,.0f}")
     
     return final_nodes_labels, cores_nos
 
