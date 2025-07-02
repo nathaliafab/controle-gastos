@@ -36,10 +36,14 @@ def categorizar_receitas_por_palavras_chave(texto_completo):
     # Categorização de receitas por ordem de prioridade
     categorias_receitas = {
         # Salário e Proventos
-        '💼 Salário e Proventos': ['REMUNERACAO', 'SALARIO', 'PROVENTO', 'VENCIMENTO', 'FOLHA'],
+        '💼 Salário e Proventos': ['REMUNERACAO', 'ORDEM BANC', 'SALARIO', 'PROVENTO', 'VENCIMENTO', 'FOLHA'],
         '🔄 Estornos e Devoluções': ['ESTORNO', 'EST ', 'DEVOLUCAO', 'REEMBOLSO'],
         '💳 Cashback e Créditos': ['PAGAMENTO/CRÉDITO', 'CARTAO CREDITO', 'CREDITO CARTAO', 'COMPRA CARTAO', 'CASHBACK', 'RECOMPENSA'],
         
+        # Rendimentos
+        '💶 Juros sobre Capital': ['JSCP', 'JCP', 'JUROS'],
+        '💷 Rendimentos': ['RENDIMENTO', 'DIVIDENDO', 'DIV'],
+
         # Investimentos - Resgates
         '🥇 Resgate - Ourocap': ['OUROCAP', 'RESGATE OUROCAP'],
         '📈 Resgate - Ações B3': ['B3', 'ACAO', 'ACOES', 'VENDA ACAO', 'LIQUIDACAO VENDA'],
@@ -49,10 +53,6 @@ def categorizar_receitas_por_palavras_chave(texto_completo):
         '📊 Resgate - Fundos': ['RESGATE FUNDO', 'FUNDO'],
         '💎 Resgate - Outros Ativos': ['RESGATE ATIVO', 'ATIVO'],
         '💰 Resgates Diversos': ['RESGATE'],
-        
-        # Rendimentos
-        '💶 Juros sobre Capital': ['JSCP', 'JCP', 'JUROS'],
-        '💷 Rendimentos': ['RENDIMENTO', 'DIVIDENDO', 'DIV'],
         
         # Transferências Recebidas
         '📱 PIX Recebido': ['PIX'],

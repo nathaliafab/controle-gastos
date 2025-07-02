@@ -1,10 +1,10 @@
 {
   "arquivos": {
-    "c6_bank": "extratos/extrato-c6-mes-ano.csv",
-    "bradesco": "extratos/extrato-bradesco-mes-ano.csv",
-    "bb": "extratos/extrato-bb-mes-ano.csv",
-    "bb_cartao": "extratos/fatura-bb-mes-ano.pdf",
-    "itau": ["extratos/extrato-itau-mes-ano.xls", "extratos/extrato-itau-mes-ano.xlsx"],
+    "c6_bank": "extratos/c6.csv",
+    "bradesco": "extratos/bradesco.csv",
+    "bb": ["extratos/bb1.csv", "extratos/bb1.csv", "extratos/bb3.csv"],
+    "bb_cartao": ["extratos/bbc1.pdf", "extratos/bbc2", "extratos/bbc3.pdf"],
+    "itau": ["extratos/itau.xls", "extratos/itauc.xlsx"],
     "output": "output/controle_gastos.xlsx"
   },
   "usuario": {
@@ -29,7 +29,7 @@
   "categorias": {
     "estornos": ["ESTORNO", "EST "],
     "investimentos": ["OUROCAP", "B3", "ATIVO", "ACOES", "FUNDO", "CDB", "LCI", "TESOURO", "APLICACAO", "RESGATE"],
-    "rendimentos": ["RENDIMENTO", "JUROS", "DIVIDENDO", "JSCP"],
+    "rendimentos": ["CASHBACK", "REMUNERACAO", "RENDIMENTO", "JUROS", "DIVIDENDO", "JSCP", "SALARIO", "ORDEM BANC", "PROVENTO", "FOLHA"],
     "pix_transferencia": ["PIX", "TRANSFERENCIA", "TED", "DOC"],
     "cartao_credito": ["CARTAO CREDITO", "CREDITO CARTAO", "COMPRA CARTAO"],
     "cartao_debito": ["CARTAO DEBITO", "DEBITO CARTAO", "DEBITO DE CARTAO"],

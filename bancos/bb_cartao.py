@@ -3,10 +3,7 @@ Processador de fatura do cartão de crédito do Banco do Brasil (PDF).
 """
 
 import pandas as pd
-import pdfplumber
 import re
-import warnings
-import logging
 from pathlib import Path
 from datetime import datetime
 from utils import criar_dataframe_padronizado
@@ -14,80 +11,71 @@ from utils import criar_dataframe_padronizado
 
 def processar(config: dict) -> pd.DataFrame:
     print("📊 Processando fatura do cartão BB...")
-    
     try:
-        pdf_path = config['arquivos']['bb_cartao']
-        
-        if not Path(pdf_path).exists():
-            print(f"   ⚠️  Arquivo {pdf_path} não encontrado")
-            return pd.DataFrame()
-        
+        arquivos_bb_cartao = config['arquivos']['bb_cartao']
+        if isinstance(arquivos_bb_cartao, str):
+            arquivos_bb_cartao = [arquivos_bb_cartao]
         senha_pdf = config['usuario']['cpf'][:5]
-        
+        import warnings, logging
         warnings.filterwarnings("ignore")
         logging.getLogger("pdfplumber").setLevel(logging.ERROR)
         logging.getLogger("pdfminer").setLevel(logging.ERROR)
-        
-        transacoes = []
+        todas_transacoes = []
         nome_cartao = None
-        ano_fatura = str(datetime.now().year)
-        
-        try:
-            with pdfplumber.open(pdf_path, password=senha_pdf) as pdf:
-                all_text = ""
-                for page in pdf.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        all_text += page_text + "\n"
-                
-                nome_cartao = _extrair_nome_cartao(all_text)
-                
-                ano_fatura = _extrair_ano_fatura(all_text)
-                
-                transacoes = _extrair_transacoes(all_text, ano_fatura)
-                
-        except Exception as e_senha:
+        from pathlib import Path
+        from datetime import datetime
+        for pdf_path in arquivos_bb_cartao:
+            if not Path(pdf_path).exists():
+                print(f"   ⚠️  Arquivo {pdf_path} não encontrado")
+                continue
+            transacoes = []
+            ano_fatura = str(datetime.now().year)
+            import pdfplumber
             try:
-                with pdfplumber.open(pdf_path) as pdf:
+                with pdfplumber.open(pdf_path, password=senha_pdf) as pdf:
                     all_text = ""
                     for page in pdf.pages:
                         page_text = page.extract_text()
                         if page_text:
                             all_text += page_text + "\n"
-                    
                     nome_cartao = _extrair_nome_cartao(all_text)
-                    
                     ano_fatura = _extrair_ano_fatura(all_text)
-                    
-                    # Extrair transações
                     transacoes = _extrair_transacoes(all_text, ano_fatura)
-                    
-            except Exception as e_sem_senha:
-                raise Exception(f"Não foi possível abrir o PDF nem com senha nem sem senha: {e_sem_senha}")
-        
-        if not transacoes:
-            print("   ⚠️  Nenhuma transação encontrada no PDF")
+            except Exception:
+                try:
+                    with pdfplumber.open(pdf_path) as pdf:
+                        all_text = ""
+                        for page in pdf.pages:
+                            page_text = page.extract_text()
+                            if page_text:
+                                all_text += page_text + "\n"
+                        nome_cartao = _extrair_nome_cartao(all_text)
+                        ano_fatura = _extrair_ano_fatura(all_text)
+                        transacoes = _extrair_transacoes(all_text, ano_fatura)
+                except Exception as e_sem_senha:
+                    print(f"   ❌ Erro ao processar {Path(pdf_path).name}: {e_sem_senha}")
+                    continue
+            if transacoes:
+                todas_transacoes.extend(transacoes)
+                print(f"   ✅ {len(transacoes)} transações encontradas em {Path(pdf_path).name}")
+        if not todas_transacoes:
+            print("   ⚠️  Nenhuma transação encontrada nos PDFs")
             return pd.DataFrame()
-        
-        # Criar DataFrame padronizado
         data_dict = {
-            'Data': [t['Data'] for t in transacoes],
-            'Data_Contabil': [t['Data'] for t in transacoes],
+            'Data': [t['Data'] for t in todas_transacoes],
+            'Data_Contabil': [t['Data'] for t in todas_transacoes],
             'Banco': 'Banco do Brasil',
             'Agencia_Conta': nome_cartao or 'BB Cartão de Crédito',
-            'Tipo_Transacao': [t['Tipo'] for t in transacoes],
-            'Descricao': [t['Descricao'] for t in transacoes],
-            'Valor': [-t['Valor'] for t in transacoes],
-            'Valor_Entrada': [abs(t['Valor']) if t['Valor'] < 0 else 0 for t in transacoes],
-            'Valor_Saida': [t['Valor'] if t['Valor'] > 0 else 0 for t in transacoes]
+            'Tipo_Transacao': [t['Tipo'] for t in todas_transacoes],
+            'Descricao': [t['Descricao'] for t in todas_transacoes],
+            'Valor': [-t['Valor'] for t in todas_transacoes],
+            'Valor_Entrada': [abs(t['Valor']) if t['Valor'] < 0 else 0 for t in todas_transacoes],
+            'Valor_Saida': [t['Valor'] if t['Valor'] > 0 else 0 for t in todas_transacoes]
         }
-        
         resultado = criar_dataframe_padronizado(data_dict)
         resultado['Categoria_Auto'] = 'Cartão Crédito'
-        
-        print(f"   ✅ {len(resultado)} transações processadas")
+        print(f"   ✅ {len(resultado)} transações processadas de {len(arquivos_bb_cartao)} arquivo(s)")
         return resultado
-        
     except Exception as e:
         print(f"   ❌ Erro ao processar PDF: {e}")
         import traceback
