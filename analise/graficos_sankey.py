@@ -5,167 +5,237 @@ import sys
 from pathlib import Path
 import argparse
 
-def gerar_sankey_por_banco(df_banco, nome_banco, output_dir):
-    """
-    Gera um gráfico Sankey para um banco específico, mostrando suas receitas e despesas.
-    O fluxo é: Banco (específico) -> Receita Detalhada -> Dinheiro Disponível (no Banco) -> Despesa Detalhada.
-    As colunas são visivelmente distintas.
-    """
-    nodes_labels = []
-    node_map = {}
-    current_node_id = 0
-    node_x_positions = []
-
-    def add_node_with_pos(label, x_pos):
-        nonlocal current_node_id
-        if label not in node_map:
-            node_map[label] = current_node_id
-            nodes_labels.append(label)
-            node_x_positions.append(x_pos)
-            current_node_id += 1
-        return node_map[label]
-
-    sources = []
-    targets = []
-    values = []
-    link_labels = []
-
-    # Definindo as posições X para as 4 colunas visuais no gráfico por banco
-    X_COL1 = 0.02  # Banco (específico)
-    X_COL2 = 0.28  # Receita Detalhada
-    X_COL3 = 0.54  # Dinheiro Disponível (no Banco)
-    X_COL4 = 0.80  # Despesa Detalhada
-
-    # Adicionar nós fixos e de colunas para este banco
-    banco_node_id = add_node_with_pos(f'Banco: {nome_banco}', X_COL1) # Coluna 1
-    dinheiro_disponivel_banco_node_id = add_node_with_pos(f'Dinheiro Disponível (no {nome_banco})', X_COL3) # Coluna 3
-
-    # Pré-popular nós de Receita Detalhada (Coluna 2)
-    for tipo_receita in df_banco[df_banco['Valor'] > 0]['Tipo_Transacao_AltoNivel'].unique():
-        add_node_with_pos(f"Receita Detalhada: {tipo_receita}", X_COL2)
-    for detalhe_provento in df_banco[df_banco['Valor'] > 0]['Tipo_Transacao_Detalhe'].unique():
-        if detalhe_provento != '' and detalhe_provento != 'nan':
-            add_node_with_pos(f"Detalhe Provento: {detalhe_provento}", X_COL2)
+def criar_descricao_completa(row):
+    """Une Tipo_Transacao e Descricao em uma única string para análise."""
+    tipo = str(row['Tipo_Transacao']).strip() if pd.notna(row['Tipo_Transacao']) else ''
+    desc = str(row['Descricao']).strip() if pd.notna(row['Descricao']) else ''
     
-    # Pré-popular nós de Despesa Detalhada (Coluna 4)
-    for categoria_despesa in df_banco[df_banco['Valor'] < 0]['Categoria_Agrupada'].unique():
-        add_node_with_pos(f"Despesa Detalhada: {categoria_despesa}", X_COL4)
+    # Remove valores 'nan' como string
+    if tipo.lower() == 'nan':
+        tipo = ''
+    if desc.lower() == 'nan':
+        desc = ''
+    
+    # Une com separador se ambos existirem
+    if tipo and desc:
+        return f"{tipo} | {desc}"
+    elif tipo:
+        return tipo
+    elif desc:
+        return desc
+    else:
+        return ''
 
-    # Processar Fluxos
-    for _, row in df_banco.iterrows():
-        if row['Valor'] > 0: # É uma Receita
-            receita_alto_nivel_label = f"Receita Detalhada: {row['Tipo_Transacao_AltoNivel']}"
-            receita_alto_nivel_node_id = node_map[receita_alto_nivel_label]
+def categorizar_receitas_por_palavras_chave(texto_completo):
+    """Categoriza receitas baseado em palavras-chave na descrição completa."""
+    if not texto_completo:
+        return 'Receita Não Categorizada', ''
+    
+    texto_upper = texto_completo.upper()
+    
+    # Categorização de receitas por ordem de prioridade
+    categorias_receitas = {
+        # Estornos e Devoluções
+        '🔄 Estornos e Devoluções': ['ESTORNO', 'EST ', 'DEVOLUCAO', 'REEMBOLSO'],
+        '💳 Cashback e Créditos': ['PAGAMENTO/CRÉDITO', 'CARTAO CREDITO', 'CREDITO CARTAO', 'COMPRA CARTAO', 'CASHBACK', 'RECOMPENSA'],
+        
+        # Investimentos - Resgates
+        '🥇 Resgate - Ourocap': ['OUROCAP', 'RESGATE OUROCAP'],
+        '📈 Resgate - Ações B3': ['B3', 'ACAO', 'ACOES', 'VENDA ACAO', 'LIQUIDACAO VENDA'],
+        '🏦 Resgate - CDB': ['RESGATE DE CDB', 'RESGATE CDB', 'CDB'],
+        '🏠 Resgate - LCI/LCA': ['RESGATE LCI', 'RESGATE LCA', 'LCI', 'LCA'],
+        '🏛️ Resgate - Tesouro': ['RESGATE TESOURO', 'TESOURO'],
+        '📊 Resgate - Fundos': ['RESGATE FUNDO', 'FUNDO'],
+        '💎 Resgate - Outros Ativos': ['RESGATE ATIVO', 'ATIVO'],
+        '💰 Resgates Diversos': ['RESGATE'],
+        
+        # Rendimentos
+        '💶 Juros sobre Capital': ['JSCP', 'JCP', 'JUROS'],
+        '💷 Rendimentos': ['RENDIMENTO', 'DIVIDENDO', 'DIV'],
+        
+        # Transferências Recebidas
+        '📱 PIX Recebido': ['PIX'],
+        '📥 Transferências Recebidas': ['TRANSFERENCIA', 'TED', 'DOC'],
+        
+        # Outros
+        '💳 Depósitos em Conta': ['DEPOSITO', 'CREDITO EM CONTA'],
+        '💼 Salário e Proventos': ['SALARIO', 'PROVENTO', 'VENCIMENTO', 'FOLHA'],
+        '💰 Outros Créditos': ['CREDITO', 'APORTE']
+    }
+    
+    # Verifica cada categoria mantendo ordem de prioridade
+    for categoria, palavras in categorias_receitas.items():
+        for palavra in palavras:
+            if palavra in texto_upper:
+                return categoria, texto_completo
+    
+    return 'Receita Não Categorizada', ''
 
-            # Link 1: Banco -> Receita Detalhada (Coluna 1 -> Coluna 2)
-            sources.append(banco_node_id)
-            targets.append(receita_alto_nivel_node_id)
-            values.append(row['Valor'])
-            link_labels.append(f"{nome_banco} para {row['Tipo_Transacao_AltoNivel']}: R${row['Valor']:.2f}")
+def categorizar_despesas_por_palavras_chave(texto_completo, categoria_auto=''):
+    """Categoriza despesas baseado em palavras-chave na descrição completa."""
+    if not texto_completo:
+        return 'Despesa Não Categorizada'
+    
+    texto_upper = texto_completo.upper()
+    cat_auto_upper = str(categoria_auto).upper() if categoria_auto else ''
+    
+    # Categorização de despesas por ordem de prioridade
+    categorias_despesas = {
+        # Investimentos - Aplicações
+        '🥇 Investimento - Ourocap': ['OUROCAP', 'APLICACAO OUROCAP'],
+        '📈 Investimento - Ações B3': ['B3', 'ACAO', 'ACOES', 'COMPRA ACAO', 'LIQUIDACAO COMPRA'],
+        '🏦 Investimento - CDB': ['APLICACAO CDB', 'CDB'],
+        '🏠 Investimento - LCI/LCA': ['APLICACAO LCI', 'APLICACAO LCA', 'LCI', 'LCA'],
+        '🏛️ Investimento - Tesouro': ['APLICACAO TESOURO', 'TESOURO'],
+        '📊 Investimento - Fundos': ['APLICACAO FUNDO', 'FUNDO'],
+        '💎 Investimento - Outros': ['APLICACAO ATIVO', 'ATIVO'],
+        '💰 Investimentos Diversos': ['APLICACAO'],
+        
+        # Cartões e Débitos
+        '💳 Cartão de Crédito': ['CARTAO CREDITO', 'CREDITO CARTAO', 'COMPRA CARTAO'],
+        '💳 Cartão de Débito': ['CARTAO DEBITO', 'DEBITO CARTAO', 'DEBITO DE CARTAO'],
+        '⚡ Débito Automático': ['DEBITO AUTOMATICO'],
+        
+        # Transferências e PIX
+        '📱 PIX Enviado': ['PIX'],
+        '📤 Transferências Enviadas': ['TRANSFERENCIA', 'TED', 'DOC'],
+        
+        # Tarifas e Saques
+        '🏦 Tarifas Bancárias': ['TARIFA', 'TAXA', 'IOF', 'ANUIDADE', 'MANUTENCAO'],
+        '💸 Saques': ['SAQUE', 'RETIRADA'],
+        
+        # Categorias de Vida
+        '🍽️ Alimentação': ['SUPERMERCADO', 'RESTAURANTE', 'LANCHONETE', 'PADARIA', 'IFOOD', 'DELIVERY', 'MERCADO'],
+        '🚗 Transporte': ['COMBUSTIVEL', 'POSTO', 'UBER', '99', 'GASOLINA', 'ALCOOL', 'TAXI'],
+        '🏥 Saúde': ['FARMACIA', 'HOSPITAL', 'CLINICA', 'MEDICO', 'MEDICAMENTO'],
+        '📚 Educação': ['ESCOLA', 'FACULDADE', 'CURSO', 'MENSALIDADE'],
+        '🎬 Lazer': ['CINEMA', 'TEATRO', 'STREAMING', 'NETFLIX', 'SPOTIFY'],
+        '⚡ Utilidades': ['LUZ', 'AGUA', 'GAS', 'INTERNET', 'TELEFONE', 'CELULAR'],
+        '👕 Vestuário': ['ROUPA', 'CALCADO', 'VESTUARIO'],
+        '🏠 Casa': ['CASA', 'DECORACAO', 'ELETRODOMESTICO', 'MOBILIA']
+    }
+    
+    # Verifica cada categoria mantendo ordem de prioridade
+    for categoria, palavras in categorias_despesas.items():
+        for palavra in palavras:
+            if palavra in texto_upper:
+                return categoria
+    
+    # Se tem categoria automática válida, usa ela
+    if cat_auto_upper and cat_auto_upper not in ['NAN', '']:
+        categoria_limpa = categoria_auto.replace('_', ' ').title()
+        return categoria_limpa
+    
+    return 'Outras Despesas'
 
-            # Se for "Proventos de Renda Variável", ramifica para o detalhe (Coluna 2 -> Coluna 2)
-            if row['Tipo_Transacao_AltoNivel'] == 'Proventos de Renda Variável' and row['Tipo_Transacao_Detalhe'] != '' and row['Tipo_Transacao_Detalhe'] != 'nan':
-                detalhe_provento_label = f"Detalhe Provento: {row['Tipo_Transacao_Detalhe']}"
-                detalhe_provento_node_id = node_map[detalhe_provento_label]
+def filtrar_transacoes_validas(df):
+    """Filtra transações removendo valores zerados e dados inválidos."""
+    df_filtrado = df[abs(df['Valor']) > 1.0].copy()
+    df_filtrado = df_filtrado.dropna(subset=['Banco', 'Valor'])
+    
+    return df_filtrado
 
-                # Link: Receita Detalhada (Proventos) -> Detalhe Provento
-                sources.append(receita_alto_nivel_node_id)
-                targets.append(detalhe_provento_node_id)
-                values.append(row['Valor'])
-                link_labels.append(f"Proventos para {row['Tipo_Transacao_Detalhe']}: R${row['Valor']:.2f}")
-                
-                # Link: Detalhe Provento -> Dinheiro Disponível (no Banco) (Coluna 2 -> Coluna 3)
-                sources.append(detalhe_provento_node_id)
-                targets.append(dinheiro_disponivel_banco_node_id)
-                values.append(row['Valor'])
-                link_labels.append(f"{row['Tipo_Transacao_Detalhe']} para Dinheiro Disponível: R${row['Valor']:.2f}")
-            else:
-                # Link: Receita Detalhada -> Dinheiro Disponível (no Banco) (Coluna 2 -> Coluna 3)
-                sources.append(receita_alto_nivel_node_id)
-                targets.append(dinheiro_disponivel_banco_node_id)
-                values.append(row['Valor'])
-                link_labels.append(f"{row['Tipo_Transacao_AltoNivel']} para Dinheiro Disponível: R${row['Valor']:.2f}")
+def limpar_nome_no(nome_completo):
+    """Remove prefixos dos nomes dos nós para menor poluição visual."""
+    prefixos = ["Banco: ", "Receita Detalhada: ", "Despesa Detalhada: ", "Detalhe Provento: ", "Despesa: "]
+    
+    nome_limpo = nome_completo
+    for prefixo in prefixos:
+        if nome_limpo.startswith(prefixo):
+            nome_limpo = nome_limpo[len(prefixo):]
+            break
+    
+    # Caso especial para nome muito longo
+    if nome_limpo.startswith("Dinheiro Disponível (no "):
+        return "Disponível"
+    
+    return nome_limpo
 
-        else: # É uma Despesa (Valor < 0)
-            despesa_categoria_label = f"Despesa Detalhada: {row['Categoria_Agrupada']}"
-            despesa_categoria_node_id = node_map[despesa_categoria_label]
-
-            # Link 1: Dinheiro Disponível (no Banco) -> Despesa Detalhada (Coluna 3 -> Coluna 4)
-            sources.append(dinheiro_disponivel_banco_node_id)
-            targets.append(despesa_categoria_node_id)
-            values.append(abs(row['Valor']))
-            link_labels.append(f"Dinheiro Disponível para {row['Categoria_Agrupada']}: R${abs(row['Valor']):.2f}")
-
-
-    if not sources or not targets:
-        print(f"Nenhum fluxo de dados válido encontrado para gerar o gráfico Sankey para o banco '{nome_banco}'.")
-        return
-
-    # --- Cores e Ícones para os Nós ---
-    cores_nos = []
+def configurar_nos_e_cores(nodes_labels, sources, targets, values):
+    """Configura cores, ícones e labels dos nós."""
     node_icons = {
         'Banco:': '🏦',
-        'Receita Detalhada:': '�',
+        'Receita Detalhada:': '💵',
         'Detalhe Provento:': '📈',
         'Dinheiro Disponível (no ': '💼',
         'Despesa Detalhada:': '💸',
+        'Receita Total': '💰',
+        'Despesa:': '💸'
     }
-
-    # Calcular totais para cada nó para exibir no label
+    
+    cores_nos = []
     node_totals = {}
+    
+    # Calcular totais para cada nó
     for i, label in enumerate(nodes_labels):
-        total_incoming = sum(values[j] for j, target_node_id in enumerate(targets) if target_node_id == i)
-        total_outgoing = sum(values[j] for j, source_node_id in enumerate(sources) if source_node_id == i)
-
-        if label.startswith('Banco:'): # O banco é a fonte para receitas e despesas
+        total_incoming = sum(values[j] for j, target_id in enumerate(targets) if target_id == i)
+        total_outgoing = sum(values[j] for j, source_id in enumerate(sources) if source_id == i)
+        
+        if label.startswith('Banco:') or label == 'Receita Total':
             node_totals[i] = total_outgoing
         elif label.startswith('Dinheiro Disponível (no '):
-            node_totals[i] = total_incoming # Dinheiro disponível recebe das receitas e envia para despesas
-        else: # Para todos os outros nós (detalhamentos de receita e despesa)
             node_totals[i] = total_incoming
-
+        else:
+            node_totals[i] = total_incoming
+    
+    # Configurar cores e labels finais
     final_nodes_labels = []
     for i, label in enumerate(nodes_labels):
+        nome_limpo = limpar_nome_no(label)
+        
+        # Encontrar ícone
         icon = ''
         for key, val in node_icons.items():
             if label.startswith(key):
                 icon = val
                 break
         
-        # Cor para os nós
+        # Definir cor
         if 'Banco:' in label:
-            cores_nos.append('rgba(41, 128, 185, 0.9)') # Azul para bancos
-        elif 'Receita Detalhada:' in label:
-            cores_nos.append('rgba(46, 204, 113, 0.9)') # Verde claro para receitas detalhadas
+            cores_nos.append('rgba(41, 128, 185, 0.9)')  # Azul
+        elif 'Receita Total' in label or 'Receita Detalhada:' in label:
+            cores_nos.append('rgba(46, 204, 113, 0.9)')  # Verde
         elif 'Detalhe Provento:' in label:
-            cores_nos.append('rgba(39, 174, 96, 0.7)') # Verde mais claro para detalhes de proventos
+            cores_nos.append('rgba(39, 174, 96, 0.7)')  # Verde claro
         elif label.startswith('Dinheiro Disponível (no '):
-            cores_nos.append('rgba(52, 73, 94, 0.9)') # Azul escuro/cinza
-        elif 'Despesa Detalhada:' in label:
-            cores_nos.append('rgba(231, 76, 60, 0.9)') # Vermelho
+            cores_nos.append('rgba(52, 73, 94, 0.9)')  # Cinza escuro
+        elif 'Despesa' in label:
+            cores_nos.append('rgba(231, 76, 60, 0.9)')  # Vermelho
         else:
-            cores_nos.append('skyblue') # Fallback
+            cores_nos.append('skyblue')  # Fallback
+        
+        final_nodes_labels.append(f"{icon} {nome_limpo}<br>R$ {node_totals.get(i, 0):,.0f}")
+    
+    return final_nodes_labels, cores_nos
 
-        final_nodes_labels.append(f"{icon} {label}<br>R$ {node_totals.get(i, 0):,.0f}")
-
-    # Cores para os links baseadas na categoria de destino
+def configurar_cores_links(sources, targets, nodes_labels):
+    """Configura cores dos links baseado no destino."""
     cores_links = []
     for i in range(len(sources)):
-        target_node_label = nodes_labels[targets[i]]
-        if 'Receita Detalhada:' in target_node_label or 'Detalhe Provento:' in target_node_label:
-            cores_links.append('rgba(46, 204, 113, 0.3)') # Verde transparente (Banco para Receita Detalhada)
-        elif target_node_label.startswith('Dinheiro Disponível (no '):
-            cores_links.append('rgba(46, 204, 113, 0.3)') # Verde transparente (Receita Detalhada para Dinheiro Disponível)
-        elif 'Despesa Detalhada:' in target_node_label:
-            cores_links.append('rgba(231, 76, 60, 0.3)') # Vermelho transparente (Dinheiro Disponível para Despesa Detalhada)
+        target_label = nodes_labels[targets[i]]
+        
+        if 'Receita' in target_label or 'Detalhe Provento:' in target_label:
+            cores_links.append('rgba(46, 204, 113, 0.3)')  # Verde transparente
+        elif 'Banco:' in target_label:
+            cores_links.append('rgba(41, 128, 185, 0.3)')  # Azul transparente
+        elif 'Dinheiro Disponível' in target_label:
+            cores_links.append('rgba(46, 204, 113, 0.3)')  # Verde transparente
+        elif 'Despesa' in target_label:
+            cores_links.append('rgba(231, 76, 60, 0.3)')  # Vermelho transparente
         else:
-            cores_links.append('rgba(149, 165, 166, 0.3)') # Cinza transparente fallback
+            cores_links.append('rgba(149, 165, 166, 0.3)')  # Cinza transparente
+    
+    return cores_links
 
-    # Criar o gráfico Sankey
+def criar_grafico_sankey(sources, targets, values, nodes_labels, node_x_positions, titulo):
+    """Cria o gráfico Sankey com configurações padronizadas."""
+    final_nodes_labels, cores_nos = configurar_nos_e_cores(nodes_labels, sources, targets, values)
+    cores_links = configurar_cores_links(sources, targets, nodes_labels)
+    
     fig = go.Figure(data=[go.Sankey(
         node=dict(
-            pad=50, # Aumentado para maior espaçamento vertical entre os nós
-            thickness=55, # Aumentado para nós mais "grossos"
+            pad=50,
+            thickness=55,
             line=dict(color="rgba(0,0,0,0.8)", width=2),
             label=final_nodes_labels,
             color=cores_nos,
@@ -180,17 +250,10 @@ def gerar_sankey_por_banco(df_banco, nome_banco, output_dir):
             hovertemplate='%{source.label} → %{target.label}<br><b>R$ %{value:,.2f}</b><extra></extra>'
         )
     )])
-
-    total_saidas_banco = abs(df_banco[df_banco['Valor'] < 0]['Valor'].sum())
-    total_entradas_banco = df_banco[df_banco['Valor'] > 0]['Valor'].sum()
-    saldo_banco = total_entradas_banco - total_saidas_banco
     
-    cor_saldo = '#27ae60' if saldo_banco >= 0 else '#e74c3c'
-    simbolo_saldo = '+' if saldo_banco >= 0 else ''
-
     fig.update_layout(
         title={
-            'text': f"💰 Fluxo de Receitas e Despesas - {nome_banco}<br><span style='font-size:14px; color:#7f8c8d'>💸 Saídas Totais: R$ {abs(total_saidas_banco):,.2f} | 💵 Entradas Totais: R$ {total_entradas_banco:,.2f} | <span style='color:{cor_saldo}'>💼 Saldo: {simbolo_saldo}R$ {saldo_banco:,.2f}</span></span>",
+            'text': titulo,
             'x': 0.5,
             'xanchor': 'center',
             'font': {'size': 18, 'color': '#2c3e50'}
@@ -202,29 +265,24 @@ def gerar_sankey_por_banco(df_banco, nome_banco, output_dir):
         paper_bgcolor='#f8f9fa',
         plot_bgcolor='#f8f9fa'
     )
-
+    
     pio.templates.default = "plotly_white"
+    return fig
 
-    output_file_html = Path(output_dir) / f"analise_gastos_sankey_{nome_banco.replace(' ', '_').lower()}.html"
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-    fig.write_html(output_file_html, include_plotlyjs='cdn')
-
-    print(f"Gráfico Sankey para '{nome_banco}' gerado com sucesso em '{output_file_html}'")
-    print(f"💵 Total de Entradas ({nome_banco}): R$ {total_entradas_banco:,.2f}")
-    print(f"💸 Total de Saídas ({nome_banco}): R$ {abs(total_saidas_banco):,.2f}")
-    print(f"💼 Saldo Final ({nome_banco}): {simbolo_saldo}R$ {saldo_banco:,.2f}")
-
-
-def gerar_sankey_geral(df_final, output_dir):
-    """
-    Gera um gráfico Sankey geral, mostrando o fluxo Receita Total -> Receita Detalhada -> Bancos -> Despesas.
-    As colunas são visivelmente distintas.
-    """
+def gerar_sankey_por_banco(df_banco, nome_banco, output_dir):
+    """Gera gráfico Sankey para um banco específico."""
+    df_banco = filtrar_transacoes_validas(df_banco)
+    
+    # Configuração de posições das colunas
+    X_COL1, X_COL2, X_COL3, X_COL4 = 0.02, 0.28, 0.54, 0.80
+    
+    # Inicialização
     nodes_labels = []
     node_map = {}
     current_node_id = 0
     node_x_positions = []
-
+    sources, targets, values = [], [], []
+    
     def add_node_with_pos(label, x_pos):
         nonlocal current_node_id
         if label not in node_map:
@@ -233,319 +291,285 @@ def gerar_sankey_geral(df_final, output_dir):
             node_x_positions.append(x_pos)
             current_node_id += 1
         return node_map[label]
-
-    sources = []
-    targets = []
-    values = []
-    link_labels = []
-
-    # Definindo as posições X para as 4 colunas visuais
-    X_COL1 = 0.02 # Receita Total
-    X_COL2 = 0.28 # Receita Detalhada
-    X_COL3 = 0.54 # Bancos
-    X_COL4 = 0.80 # Despesas
-
-    # Adicionar nós da Coluna 1 e 4
-    receita_total_node_id = add_node_with_pos('Receita Total', X_COL1)
     
-    # Pré-popular nós da Coluna 2 (Receita Detalhada)
-    df_receitas = df_final[df_final['Valor'] > 0].copy()
-    for tipo_receita in df_receitas['Tipo_Transacao_AltoNivel'].unique():
+    # Nós principais
+    banco_node_id = add_node_with_pos(f'Banco: {nome_banco}', X_COL1)
+    dinheiro_node_id = add_node_with_pos(f'Dinheiro Disponível (no {nome_banco})', X_COL3)
+    
+    # Pré-popular nós de receitas e despesas
+    for tipo_receita in df_banco[df_banco['Valor'] > 0]['Tipo_Transacao_AltoNivel'].unique():
         add_node_with_pos(f"Receita Detalhada: {tipo_receita}", X_COL2)
-    for detalhe_provento in df_receitas['Tipo_Transacao_Detalhe'].unique():
-        if detalhe_provento != '' and detalhe_provento != 'nan':
-            add_node_with_pos(f"Detalhe Provento: {detalhe_provento}", X_COL2)
-
-    # Pré-popular nós da Coluna 3 (Bancos)
-    for banco in df_final['Banco'].unique():
-        add_node_with_pos(f"Banco: {banco}", X_COL3)
-
-    # Pré-popular nós da Coluna 4 (Despesas)
-    for categoria_despesa in df_final[df_final['Valor'] < 0]['Categoria_Agrupada'].unique():
-        add_node_with_pos(f"Despesa: {categoria_despesa}", X_COL4)
-
-    # --- Links ---
-
-    # 1. Receita Total -> Receita Detalhada
-    df_receita_detalhada_aggr = df_receitas.copy()
-    df_receita_detalhada_aggr['Detailed_Revenue_Label'] = df_receita_detalhada_aggr.apply(
-        lambda row: f"Detalhe Provento: {row['Tipo_Transacao_Detalhe']}" if row['Tipo_Transacao_AltoNivel'] == 'Proventos de Renda Variável' and row['Tipo_Transacao_Detalhe'] != '' and row['Tipo_Transacao_Detalhe'] != 'nan' else f"Receita Detalhada: {row['Tipo_Transacao_AltoNivel']}",
-        axis=1
-    )
-    df_receita_detalhada_aggr = df_receita_detalhada_aggr.groupby('Detailed_Revenue_Label')['Valor'].sum().reset_index()
-
-    for _, row_detalhe in df_receita_detalhada_aggr.iterrows():
-        detalhe_label = row_detalhe['Detailed_Revenue_Label']
-        detalhe_node_id = node_map[detalhe_label]
-        sources.append(receita_total_node_id)
-        targets.append(detalhe_node_id)
-        values.append(row_detalhe['Valor'])
-        link_labels.append(f"Receita Total para {detalhe_label.replace('Receita Detalhada: ', '').replace('Detalhe Provento: ', '')}: R${row_detalhe['Valor']:.2f}")
-
-
-    # 2. Receita Detalhada -> Bancos
-    df_receita_detalhada_banco_aggr = df_receitas.copy()
-    df_receita_detalhada_banco_aggr['Detailed_Revenue_Label'] = df_receita_detalhada_banco_aggr.apply(
-        lambda row: f"Detalhe Provento: {row['Tipo_Transacao_Detalhe']}" if row['Tipo_Transacao_AltoNivel'] == 'Proventos de Renda Variável' and row['Tipo_Transacao_Detalhe'] != '' and row['Tipo_Transacao_Detalhe'] != 'nan' else f"Receita Detalhada: {row['Tipo_Transacao_AltoNivel']}",
-        axis=1
-    )
-    df_receita_detalhada_banco_aggr = df_receita_detalhada_banco_aggr.groupby(['Detailed_Revenue_Label', 'Banco'])['Valor'].sum().reset_index()
-
-    for _, row_link in df_receita_detalhada_banco_aggr.iterrows():
-        source_label = row_link['Detailed_Revenue_Label']
-        target_label = f"Banco: {row_link['Banco']}"
-        source_node_id = node_map[source_label]
-        target_node_id = node_map[target_label]
-        sources.append(source_node_id)
-        targets.append(target_node_id)
-        values.append(row_link['Valor'])
-        link_labels.append(f"{source_label.replace('Receita Detalhada: ', '').replace('Detalhe Provento: ', '')} para {row_link['Banco']}: R${row_link['Valor']:.2f}")
-
-
-    # 3. Bancos -> Despesas
-    df_despesas = df_final[df_final['Valor'] < 0].copy()
-    df_despesas_por_banco_categoria = df_despesas.groupby(['Banco', 'Categoria_Agrupada'])['Valor'].sum().reset_index()
-    for _, row_desp in df_despesas_por_banco_categoria.iterrows():
-        banco_label = f"Banco: {row_desp['Banco']}"
-        despesa_categoria_label = f"Despesa: {row_desp['Categoria_Agrupada']}"
+    
+    for detalhe in df_banco[df_banco['Valor'] > 0]['Tipo_Transacao_Detalhe'].unique():
+        if detalhe and detalhe != 'nan':
+            add_node_with_pos(f"Detalhe Provento: {detalhe}", X_COL2)
+    
+    for categoria in df_banco[df_banco['Valor'] < 0]['Categoria_Agrupada'].unique():
+        add_node_with_pos(f"Despesa Detalhada: {categoria}", X_COL4)
+    
+    # Processar fluxos
+    for _, row in df_banco.iterrows():
+        if abs(row['Valor']) <= 1.0:
+            continue
         
-        if banco_label in node_map and despesa_categoria_label in node_map:
-            banco_node_id = node_map[banco_label]
-            despesa_categoria_node_id = node_map[despesa_categoria_label]
+        if row['Valor'] > 0:  # Receita
+            receita_label = f"Receita Detalhada: {row['Tipo_Transacao_AltoNivel']}"
+            receita_node_id = node_map[receita_label]
+            
+            # Banco -> Receita Detalhada
             sources.append(banco_node_id)
-            targets.append(despesa_categoria_node_id)
-            values.append(abs(row_desp['Valor']))
-            link_labels.append(f"{row_desp['Banco']} para {row_desp['Categoria_Agrupada']}: R${abs(row_desp['Valor']):.2f}")
-
-    if not sources or not targets:
-        print(f"Nenhum fluxo de dados válido encontrado para gerar o gráfico Sankey geral.")
-        return
-
-    # --- Cores e Ícones para os Nós ---
-    cores_nos = []
-    node_icons = {
-        'Receita Total': '💰',
-        'Receita Detalhada:': '📊',
-        'Detalhe Provento:': '📈',
-        'Banco:': '🏦',
-        'Despesa:': '💸',
-    }
-
-    # Calcular totais para cada nó para exibir no label
-    node_totals = {}
-    for i, label in enumerate(nodes_labels):
-        total_incoming = sum(values[j] for j, target_node_id in enumerate(targets) if target_node_id == i)
-        total_outgoing = sum(values[j] for j, source_node_id in enumerate(sources) if source_node_id == i)
-
-        if label == 'Receita Total':
-            node_totals[i] = total_outgoing
-        else:
-            node_totals[i] = total_incoming
-
-    final_nodes_labels = []
-    for i, label in enumerate(nodes_labels):
-        icon = ''
-        for key, val in node_icons.items():
-            if label.startswith(key):
-                icon = val
-                break
+            targets.append(receita_node_id)
+            values.append(row['Valor'])
+            
+            # Tratamento especial para Proventos de Renda Variável
+            if (row['Tipo_Transacao_AltoNivel'] == 'Proventos de Renda Variável' and 
+                row['Tipo_Transacao_Detalhe'] and row['Tipo_Transacao_Detalhe'] != 'nan'):
+                
+                detalhe_label = f"Detalhe Provento: {row['Tipo_Transacao_Detalhe']}"
+                detalhe_node_id = node_map[detalhe_label]
+                
+                # Receita -> Detalhe
+                sources.append(receita_node_id)
+                targets.append(detalhe_node_id)
+                values.append(row['Valor'])
+                
+                # Detalhe -> Dinheiro Disponível
+                sources.append(detalhe_node_id)
+                targets.append(dinheiro_node_id)
+                values.append(row['Valor'])
+            else:
+                # Receita -> Dinheiro Disponível
+                sources.append(receita_node_id)
+                targets.append(dinheiro_node_id)
+                values.append(row['Valor'])
         
-        # Cor para os nós
-        if 'Receita Total' in label:
-            cores_nos.append('rgba(39, 174, 96, 0.9)') # Verde escuro
-        elif 'Receita Detalhada:' in label:
-            cores_nos.append('rgba(46, 204, 113, 0.9)') # Verde claro
-        elif 'Detalhe Provento:' in label:
-            cores_nos.append('rgba(39, 174, 96, 0.7)') # Verde mais claro
-        elif 'Banco:' in label:
-            cores_nos.append('rgba(41, 128, 185, 0.9)') # Azul
-        elif 'Despesa:' in label:
-            cores_nos.append('rgba(231, 76, 60, 0.9)') # Vermelho
-        else:
-            cores_nos.append('skyblue') # Fallback
-
-        final_nodes_labels.append(f"{icon} {label}<br>R$ {node_totals.get(i, 0):,.0f}")
-
-    # Cores para os links
-    cores_links = []
-    for i in range(len(sources)):
-        target_node_label = nodes_labels[targets[i]]
-        if 'Receita Detalhada:' in target_node_label or 'Detalhe Provento:' in target_node_label:
-            cores_links.append('rgba(46, 204, 113, 0.3)') # Verde transparente (Receita Total para Receita Detalhada)
-        elif 'Banco:' in target_node_label:
-            cores_links.append('rgba(41, 128, 185, 0.3)') # Azul transparente (Receita Detalhada para Banco)
-        elif 'Despesa:' in target_node_label:
-            cores_links.append('rgba(231, 76, 60, 0.3)') # Vermelho transparente (Banco para Despesa)
-        else:
-            cores_links.append('rgba(149, 165, 166, 0.3)') # Cinza transparente fallback
-
-    fig = go.Figure(data=[go.Sankey(
-        node=dict(
-            pad=40,
-            thickness=45,
-            line=dict(color="rgba(0,0,0,0.8)", width=2),
-            label=final_nodes_labels,
-            color=cores_nos,
-            x=node_x_positions,
-            hovertemplate='%{label}<extra></extra>'
-        ),
-        link=dict(
-            source=sources,
-            target=targets,
-            value=values,
-            color=cores_links,
-            hovertemplate='%{source.label} → %{target.label}<br><b>R$ %{value:,.2f}</b><extra></extra>'
-        )
-    )])
-
-    total_saidas = abs(df_final[df_final['Valor'] < 0]['Valor'].sum())
-    total_entradas = df_final[df_final['Valor'] > 0]['Valor'].sum()
+        else:  # Despesa
+            despesa_label = f"Despesa Detalhada: {row['Categoria_Agrupada']}"
+            despesa_node_id = node_map[despesa_label]
+            
+            # Dinheiro Disponível -> Despesa
+            sources.append(dinheiro_node_id)
+            targets.append(despesa_node_id)
+            values.append(abs(row['Valor']))
+    
+    if not sources:
+        print(f"⚠️ Nenhum fluxo válido para '{nome_banco}'")
+        return
+    
+    # Calcular totais
+    total_entradas = df_banco[df_banco['Valor'] > 0]['Valor'].sum()
+    total_saidas = abs(df_banco[df_banco['Valor'] < 0]['Valor'].sum())
     saldo = total_entradas - total_saidas
     
     cor_saldo = '#27ae60' if saldo >= 0 else '#e74c3c'
     simbolo_saldo = '+' if saldo >= 0 else ''
-
-    fig.update_layout(
-        title={
-            'text': f"💰 Fluxo Geral de Receitas e Despesas<br><span style='font-size:14px; color:#7f8c8d'>💸 Saídas Totais: R$ {abs(total_saidas):,.2f} | 💵 Entradas Totais: R$ {total_entradas:,.2f} | <span style='color:{cor_saldo}'>💼 Saldo: {simbolo_saldo}R$ {saldo:,.2f}</span></span>",
-            'x': 0.5,
-            'xanchor': 'center',
-            'font': {'size': 18, 'color': '#2c3e50'}
-        },
-        font=dict(size=13, family="Arial", color='#2c3e50'),
-        height=700,
-        width=1200,
-        margin=dict(t=100, l=50, r=50, b=50),
-        paper_bgcolor='#f8f9fa',
-        plot_bgcolor='#f8f9fa'
-    )
-
-    pio.templates.default = "plotly_white"
-
-    output_file_html = Path(output_dir) / "analise_gastos_sankey_geral.html"
+    
+    titulo = (f"💰 Fluxo de Receitas e Despesas - {nome_banco}<br>"
+              f"<span style='font-size:14px; color:#7f8c8d'>"
+              f"💸 Saídas: R$ {total_saidas:,.2f} | 💵 Entradas: R$ {total_entradas:,.2f} | "
+              f"<span style='color:{cor_saldo}'>💼 Saldo: {simbolo_saldo}R$ {saldo:,.2f}</span></span>")
+    
+    # Criar gráfico
+    fig = criar_grafico_sankey(sources, targets, values, nodes_labels, node_x_positions, titulo)
+    
+    # Salvar arquivo
+    output_file = Path(output_dir) / f"analise_gastos_sankey_{nome_banco.replace(' ', '_').lower()}.html"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    fig.write_html(output_file_html, include_plotlyjs='cdn')
+    fig.write_html(output_file, include_plotlyjs='cdn')
+    
+    print(f"✅ {nome_banco}: R$ {saldo:,.2f} ({output_file.name})")
 
-    print(f"Gráfico Sankey Geral gerado com sucesso em '{output_file_html}'")
-    print(f"💵 Total de Entradas (Geral): R$ {total_entradas:,.2f}")
-    print(f"💸 Total de Saídas (Geral): R$ {abs(total_saidas):,.2f}")
-    print(f"💼 Saldo Final (Geral): {simbolo_saldo}R$ {saldo:,.2f}")
-
+def gerar_sankey_geral(df_final, output_dir):
+    """Gera gráfico Sankey geral consolidado."""
+    df_final = filtrar_transacoes_validas(df_final)
+    
+    # Configuração de posições das colunas
+    X_COL1, X_COL2, X_COL3, X_COL4 = 0.02, 0.28, 0.54, 0.80
+    
+    # Inicialização
+    nodes_labels = []
+    node_map = {}
+    current_node_id = 0
+    node_x_positions = []
+    sources, targets, values = [], [], []
+    
+    def add_node_with_pos(label, x_pos):
+        nonlocal current_node_id
+        if label not in node_map:
+            node_map[label] = current_node_id
+            nodes_labels.append(label)
+            node_x_positions.append(x_pos)
+            current_node_id += 1
+        return node_map[label]
+    
+    # Nó principal de receita total
+    receita_total_id = add_node_with_pos('Receita Total', X_COL1)
+    
+    # 1. Receita Total -> Receita Detalhada
+    df_receitas = df_final[df_final['Valor'] > 0].copy()
+    df_receitas['Detail_Label'] = df_receitas.apply(
+        lambda row: (f"Detalhe Provento: {row['Tipo_Transacao_Detalhe']}" 
+                    if (row['Tipo_Transacao_AltoNivel'] == 'Proventos de Renda Variável' and 
+                        row['Tipo_Transacao_Detalhe'] and row['Tipo_Transacao_Detalhe'] != 'nan')
+                    else f"Receita Detalhada: {row['Tipo_Transacao_AltoNivel']}"), axis=1
+    )
+    
+    receita_agg = df_receitas.groupby('Detail_Label')['Valor'].sum().reset_index()
+    receita_agg = receita_agg[receita_agg['Valor'] > 1.0]
+    
+    for _, row in receita_agg.iterrows():
+        detalhe_id = add_node_with_pos(row['Detail_Label'], X_COL2)
+        sources.append(receita_total_id)
+        targets.append(detalhe_id)
+        values.append(row['Valor'])
+    
+    # 2. Receita Detalhada -> Bancos
+    banco_agg = df_receitas.groupby(['Detail_Label', 'Banco'])['Valor'].sum().reset_index()
+    banco_agg = banco_agg[banco_agg['Valor'] > 1.0]
+    
+    for _, row in banco_agg.iterrows():
+        source_id = add_node_with_pos(row['Detail_Label'], X_COL2)
+        target_id = add_node_with_pos(f"Banco: {row['Banco']}", X_COL3)
+        sources.append(source_id)
+        targets.append(target_id)
+        values.append(row['Valor'])
+    
+    # 3. Bancos -> Despesas
+    df_despesas = df_final[df_final['Valor'] < 0].copy()
+    despesa_agg = df_despesas.groupby(['Banco', 'Categoria_Agrupada'])['Valor'].sum().reset_index()
+    despesa_agg = despesa_agg[abs(despesa_agg['Valor']) > 1.0]
+    
+    for _, row in despesa_agg.iterrows():
+        banco_id = add_node_with_pos(f"Banco: {row['Banco']}", X_COL3)
+        despesa_id = add_node_with_pos(f"Despesa: {row['Categoria_Agrupada']}", X_COL4)
+        sources.append(banco_id)
+        targets.append(despesa_id)
+        values.append(abs(row['Valor']))
+    
+    if not sources:
+        print("⚠️ Nenhum fluxo válido para o gráfico geral")
+        return
+    
+    # Calcular totais
+    total_entradas = df_final[df_final['Valor'] > 0]['Valor'].sum()
+    total_saidas = abs(df_final[df_final['Valor'] < 0]['Valor'].sum())
+    saldo = total_entradas - total_saidas
+    
+    cor_saldo = '#27ae60' if saldo >= 0 else '#e74c3c'
+    simbolo_saldo = '+' if saldo >= 0 else ''
+    
+    titulo = (f"💰 Fluxo Geral de Receitas e Despesas<br>"
+              f"<span style='font-size:14px; color:#7f8c8d'>"
+              f"💸 Saídas: R$ {total_saidas:,.2f} | 💵 Entradas: R$ {total_entradas:,.2f} | "
+              f"<span style='color:{cor_saldo}'>💼 Saldo: {simbolo_saldo}R$ {saldo:,.2f}</span></span>")
+    
+    # Criar gráfico
+    fig = criar_grafico_sankey(sources, targets, values, nodes_labels, node_x_positions, titulo)
+    
+    # Salvar arquivo
+    output_file = Path(output_dir) / "analise_gastos_sankey_geral.html"
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    fig.write_html(output_file, include_plotlyjs='cdn')
+    
+    print(f"✅ Geral: R$ {saldo:,.2f} ({output_file.name})")
 
 def analisar_gastos_sankey_proventos_detalhados(nome_arquivo_excel="controle_gastos.xlsx", output_dir="output"):
     """
-    Lê um arquivo Excel de controle de gastos, identifica receitas e despesas,
-    aplica categorizações específicas (com proventos detalhados em 3 colunas de receita),
-    ignora transferências próprias, e gera arquivos HTML com gráficos Sankey:
-    - Um para CADA BANCO (Banco -> Receita (geral) -> Detalhamentos -> Despesa Final).
-    - Um GERAL (Receita Total -> Receita Detalhada -> Bancos -> Despesas).
+    Função principal que processa dados e gera gráficos Sankey.
+    
+    Gera:
+    - Um gráfico para cada banco
+    - Um gráfico geral consolidado
     """
     try:
         df = pd.read_excel(nome_arquivo_excel)
-
+        
+        # Conversão de tipos
         df['Valor'] = pd.to_numeric(df['Valor'].fillna(0))
-        df['Banco'] = df['Banco'].astype(str)
-        df['Tipo_Transacao'] = df['Tipo_Transacao'].astype(str)
-        df['Descricao'] = df['Descricao'].astype(str)
-        df['Categoria_Auto'] = df['Categoria_Auto'].astype(str)
-        df['Categoria'] = df['Categoria'].astype(str)
-
-        df['Tipo_Transacao_Upper'] = df['Tipo_Transacao'].str.upper().fillna('')
-        df['Descricao_Upper'] = df['Descricao'].str.upper().fillna('')
-        df['Categoria_Auto_Upper'] = df['Categoria_Auto'].str.upper().fillna('')
-        df['Categoria_Upper'] = df['Categoria'].str.upper().fillna('')
-
-        cond_transferencia_propria = \
-            (df['Tipo_Transacao_Upper'].str.contains("TRANSFERÊNCIA PRÓPRIA")) | \
-            (df['Descricao_Upper'].str.contains("TRANSFERÊNCIA PRÓPRIA")) | \
-            (df['Categoria_Auto_Upper'].str.contains("TRANSFERÊNCIA PRÓPRIA")) | \
-            (df['Categoria_Upper'].str.contains("TRANSFERÊNCIA PRÓPRIA"))
-
-        df_processado = df[~cond_transferencia_propria].copy()
-
+        for col in ['Banco', 'Tipo_Transacao', 'Descricao', 'Categoria_Auto', 'Categoria']:
+            df[col] = df[col].astype(str)
+        
+        # Criar descrição completa
+        df['Descricao_Completa'] = df.apply(criar_descricao_completa, axis=1)
+        df['Descricao_Upper'] = df['Descricao_Completa'].str.upper().fillna('')
+        
+        # Filtrar transferências próprias
+        transferencias_proprias = ['TRANSFERENCIA PROPRIA', 'TRANSFERÊNCIA PRÓPRIA']
+        mask_transferencia = df['Descricao_Upper'].str.contains('|'.join(transferencias_proprias), na=False)
+        df_processado = df[~mask_transferencia].copy()
+        
         if df_processado.empty:
-            print("Após filtrar as transferências próprias, não há dados válidos para gerar o gráfico.")
+            print("❌ Nenhum dado válido após filtrar transferências próprias")
             Path(output_dir).mkdir(parents=True, exist_ok=True)
             with open(Path(output_dir) / "nenhum_dado_valido.html", "w") as f:
-                f.write("<html><body><h1>Não há dados válidos para gerar o gráfico após a filtragem de transferências próprias.</h1></body></html>")
+                f.write("<html><body><h1>Nenhum dado válido encontrado.</h1></body></html>")
             return
-
-        df_processado['Tipo_Transacao_AltoNivel'] = df_processado['Tipo_Transacao']
+        
+        # Inicializar colunas de categorização
+        df_processado['Tipo_Transacao_AltoNivel'] = ''
         df_processado['Tipo_Transacao_Detalhe'] = ''
-        df_processado['Categoria_Agrupada'] = df_processado['Categoria_Auto']
-
-        # --- Regras para RECEITAS (Valor > 0) ---
-        df_receitas_temp = df_processado[df_processado['Valor'] > 0].copy()
-        cond_proventos = (df_receitas_temp['Descricao_Upper'].str.contains("COR RENDIMENTO|COR JSCP")) | \
-                         (df_receitas_temp['Tipo_Transacao_Upper'].str.contains("COR RENDIMENTO|COR JSCP"))
-        df_receitas_temp.loc[cond_proventos, 'Tipo_Transacao_AltoNivel'] = 'Proventos de Renda Variável'
-        df_receitas_temp.loc[cond_proventos, 'Tipo_Transacao_Detalhe'] = \
-            df_receitas_temp.loc[cond_proventos].apply(
-                lambda row: row['Descricao'] if row['Descricao'] != 'nan' and row['Descricao'] != '' else row['Tipo_Transacao'],
+        df_processado['Categoria_Agrupada'] = ''
+        
+        # Categorizar receitas
+        receitas_mask = df_processado['Valor'] > 0
+        if receitas_mask.any():
+            df_receitas = df_processado[receitas_mask].copy()
+            categoria_resultado = df_receitas['Descricao_Completa'].apply(categorizar_receitas_por_palavras_chave)
+            df_receitas['Tipo_Transacao_AltoNivel'] = categoria_resultado.apply(lambda x: x[0])
+            df_receitas['Tipo_Transacao_Detalhe'] = categoria_resultado.apply(lambda x: x[1])
+            df_processado.loc[receitas_mask, 'Tipo_Transacao_AltoNivel'] = df_receitas['Tipo_Transacao_AltoNivel']
+            df_processado.loc[receitas_mask, 'Tipo_Transacao_Detalhe'] = df_receitas['Tipo_Transacao_Detalhe']
+        
+        # Categorizar despesas
+        despesas_mask = df_processado['Valor'] < 0
+        if despesas_mask.any():
+            df_despesas = df_processado[despesas_mask].copy()
+            df_despesas['Categoria_Agrupada'] = df_despesas.apply(
+                lambda row: categorizar_despesas_por_palavras_chave(row['Descricao_Completa'], row['Categoria_Auto']), 
                 axis=1
             )
-        cond_pix_rec = (df_receitas_temp['Descricao_Upper'].str.contains("PIX")) | \
-                       (df_receitas_temp['Tipo_Transacao_Upper'].str.contains("PIX")) | \
-                       (df_receitas_temp['Categoria_Auto_Upper'].str.contains("PIX"))
-        df_receitas_temp.loc[cond_pix_rec & (~cond_proventos), 'Tipo_Transacao_AltoNivel'] = 'PIX (Receita)'
-
-        # --- Regras para DESPESAS (Valor < 0) ---
-        df_despesas_temp = df_processado[df_processado['Valor'] < 0].copy()
-        def get_expense_category(row):
-            desc_upper = row['Descricao_Upper']
-            tipo_trans_upper = row['Tipo_Transacao_Upper']
-            cat_auto_upper = row['Categoria_Auto_Upper']
-            if "COR OPERACOES B3" in desc_upper: return 'Investimentos em Bolsa'
-            if "APLICACAO CDB COFRINHOS" in desc_upper: return 'Investimentos CDB Cofrinho'
-            if ("ITAU VISA" in desc_upper or "ITAU BLACK" in desc_upper) or \
-               ("ITAU VISA" in tipo_trans_upper or "ITAU BLACK" in tipo_trans_upper): return 'Despesas Cartão de Crédito'
-            if ("PIX" in desc_upper or "PIX" in tipo_trans_upper or "PIX" in cat_auto_upper): return 'PIX (Despesa)'
-            if 'CARTAO CREDITO' in cat_auto_upper or 'CARTAO CREDITO' in desc_upper or 'CARTAO CREDITO' in tipo_trans_upper: return 'Cartão Crédito (Geral)'
-            if 'CARTAO DEBITO' in cat_auto_upper or 'CARTAO DEBITO' in desc_upper or 'CARTAO DEBITO' in tipo_trans_upper: return 'Cartão Débito'
-            if 'INVESTIMENTO' in cat_auto_upper or 'INVESTIMENTO' in desc_upper or 'INVESTIMENTO' in tipo_trans_upper: return 'Investimentos (Geral)'
-            if row['Categoria_Auto'] != 'nan' and row['Categoria_Auto'] != '': return row['Categoria_Auto']
-            return 'Outros'
-        df_despesas_temp['Categoria_Agrupada'] = df_despesas_temp.apply(get_expense_category, axis=1)
-
-        df_final = pd.concat([df_receitas_temp, df_despesas_temp]).sort_index()
-
-        # Gerar um Sankey para cada banco
-        unique_bancos = df_final['Banco'].unique()
-        if len(unique_bancos) == 0:
-            print("Nenhum banco encontrado nos dados processados para gerar gráficos.")
+            df_processado.loc[despesas_mask, 'Categoria_Agrupada'] = df_despesas['Categoria_Agrupada']
+        
+        # Validar dados finais
+        if df_processado.empty:
+            print("❌ Nenhum dado válido após categorização")
             return
-
-        for banco in unique_bancos:
-            df_banco_filtered = df_final[df_final['Banco'] == banco].copy()
-            if not df_banco_filtered.empty:
-                gerar_sankey_por_banco(df_banco_filtered, banco, output_dir)
-            else:
-                print(f"Nenhum dado válido para o banco '{banco}' após a filtragem de transferências próprias e categorização.")
-
-        # Gerar o Sankey geral
-        gerar_sankey_geral(df_final, output_dir)
-
-        print("\nAnálise Sankey por banco e geral concluída!")
-        print(f"💡 Dica: Verifique a pasta '{output_dir}' para os arquivos HTML gerados.")
-
-
+        
+        # Obter bancos únicos
+        bancos_unicos = df_processado['Banco'].unique()
+        if len(bancos_unicos) == 0:
+            print("❌ Nenhum banco encontrado")
+            return
+        
+        print(f"📊 Processando {len(df_processado)} transações de {len(bancos_unicos)} banco(s)")
+        
+        # Gerar gráficos por banco
+        for banco in bancos_unicos:
+            df_banco = df_processado[df_processado['Banco'] == banco].copy()
+            if not df_banco.empty:
+                gerar_sankey_por_banco(df_banco, banco, output_dir)
+        
+        # Gerar gráfico geral
+        gerar_sankey_geral(df_processado, output_dir)
+        
+        print(f"✅ Análise concluída! Arquivos salvos em '{output_dir}'")
+        
     except FileNotFoundError:
-        print(f"Erro: O arquivo '{nome_arquivo_excel}' não foi encontrado. Certifique-se de que ele está no mesmo diretório do script.")
+        print(f"❌ Arquivo '{nome_arquivo_excel}' não encontrado")
         sys.exit(1)
     except KeyError as e:
-        print(f"Erro: Coluna '{e}' não encontrada no arquivo Excel. Verifique a estrutura das colunas e se os nomes estão corretos.")
+        print(f"❌ Coluna '{e}' não encontrada no Excel")
         sys.exit(1)
     except Exception as e:
-        print(f"Ocorreu um erro inesperado: {e}: {e.__class__}")
+        print(f"❌ Erro inesperado: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Gerador de Gráfico Sankey para Análise de Gastos com Proventos Detalhados por Banco e um Gráfico Geral.')
+    parser = argparse.ArgumentParser(description='Gerador de Gráficos Sankey para Análise de Gastos')
     parser.add_argument('--excel', type=str, default='controle_gastos.xlsx',
-                        help='Caminho para o arquivo Excel de controle de gastos (padrão: controle_gastos.xlsx)')
+                        help='Arquivo Excel com dados (padrão: controle_gastos.xlsx)')
     parser.add_argument('--output_dir', type=str, default='output',
-                        help='Diretório de saída para os arquivos HTML gerados (padrão: output)')
+                        help='Diretório de saída (padrão: output)')
     
     args = parser.parse_args()
-    
     analisar_gastos_sankey_proventos_detalhados(nome_arquivo_excel=args.excel, output_dir=args.output_dir)

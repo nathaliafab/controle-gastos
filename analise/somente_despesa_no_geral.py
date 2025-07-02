@@ -289,7 +289,7 @@ def gerar_sankey_geral(df_final, output_dir):
     cores_nos = []
     node_icons = {
         'Receita Total': '💰',
-        'Banco:': '�',
+        'Banco:': '🏦',
         'Despesa:': '💸',
     }
 
