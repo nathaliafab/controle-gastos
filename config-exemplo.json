@@ -1,0 +1,41 @@
+{
+  "arquivos": {
+    "c6_bank": "extratos/extrato-c6-mes-ano.csv",
+    "bradesco": "extratos/extrato-bradesco-mes-ano.csv",
+    "bb": "extratos/extrato-bb-mes-ano.csv",
+    "bb_cartao": "extratos/fatura-bb-mes-ano.pdf",
+    "itau": ["extratos/extrato-itau-mes-ano.xls", "extratos/extrato-itau-mes-ano.xlsx"],
+    "output": "output/controle_gastos.xlsx"
+  },
+  "usuario": {
+    "nome": "SEU_NOME",
+    "cpf": "12345678900"
+  },
+  "saldos_iniciais": {
+    "bb": 0.00,
+    "bradesco": 0.00,
+    "c6_bank": 0.00,
+    "itau": 0.00
+  },
+  "processamento": {
+    "skip_rows_c6": 8,
+    "skip_rows_bradesco": 1,
+    "skip_rows_bb": 0,
+    "skip_rows_itau": 10,
+    "janela_transferencias_dias": 3,
+    "tolerancia_valor": 0.01
+  },
+  
+  "categorias": {
+    "estornos": ["ESTORNO", "EST "],
+    "investimentos": ["OUROCAP", "B3", "ATIVO", "ACOES", "FUNDO", "CDB", "LCI", "TESOURO", "APLICACAO", "RESGATE"],
+    "rendimentos": ["RENDIMENTO", "JUROS", "DIVIDENDO", "JSCP"],
+    "pix_transferencia": ["PIX", "TRANSFERENCIA", "TED", "DOC"],
+    "cartao_credito": ["CARTAO CREDITO", "CREDITO CARTAO", "COMPRA CARTAO"],
+    "cartao_debito": ["CARTAO DEBITO", "DEBITO CARTAO", "DEBITO DE CARTAO"],
+    "debito_automatico": ["DEBITO AUTOMATICO"],
+    "tarifas": ["TARIFA", "TAXA", "IOF", "ANUIDADE", "MANUTENCAO"],
+    "saques": ["SAQUE", "RETIRADA"],
+    "depositos": ["DEPOSITO", "CREDITO EM CONTA"]
+  }
+}

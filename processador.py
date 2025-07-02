@@ -1,0 +1,190 @@
+"""
+Processador principal de extratos bancários - orquestração do processamento.
+"""
+
+import pandas as pd
+from pathlib import Path
+from bancos import PROCESSADORES, MAPEAMENTO_ARQUIVOS, NOMES_BANCOS
+from utils import calcular_saldos, detectar_transferencias_proprias, gerar_relatorio, gerar_nome_arquivo_timestamped
+from config_manager import COLUNAS_PADRONIZADAS
+
+
+def verificar_e_filtrar_bancos(bancos_para_processar, config):
+    """Verifica arquivos e retorna lista de bancos válidos e lista de avisos."""
+    bancos_validos = []
+    avisos = []
+    
+    for banco in bancos_para_processar:
+        arquivo_key = MAPEAMENTO_ARQUIVOS[banco]
+        arquivos = config['arquivos'][arquivo_key]
+        
+        banco_tem_arquivos = False
+        arquivos_faltando_banco = []
+        
+        if isinstance(arquivos, str):
+            if arquivos and Path(arquivos).exists():
+                banco_tem_arquivos = True
+            elif arquivos:
+                arquivos_faltando_banco.append(arquivos)
+        elif isinstance(arquivos, list):
+            for arquivo in arquivos:
+                if arquivo and Path(arquivo).exists():
+                    banco_tem_arquivos = True
+                elif arquivo:
+                    arquivos_faltando_banco.append(arquivo)
+        
+        if banco_tem_arquivos:
+            bancos_validos.append(banco)
+        else:
+            # Adicionar aviso sobre arquivos faltando
+            for arquivo in arquivos_faltando_banco:
+                avisos.append(f"{banco.upper()}: {arquivo}")
+    
+    return bancos_validos, avisos
+
+
+def determinar_bancos_processar(args):
+    if args.all:
+        bancos_para_processar = ['c6', 'bradesco', 'bb', 'bb_cartao', 'itau']
+        print("🎯 Modo: TODOS OS BANCOS")
+    else:
+        bancos_para_processar = []
+        if args.c6:
+            bancos_para_processar.append('c6')
+        if args.bradesco:
+            bancos_para_processar.append('bradesco')
+        if args.bb:
+            bancos_para_processar.append('bb')
+        if args.bb_cartao:
+            bancos_para_processar.append('bb_cartao')
+        if args.itau:
+            bancos_para_processar.append('itau')
+        
+        bancos_selecionados = [NOMES_BANCOS[b] for b in bancos_para_processar]
+        print(f"🎯 Modo: BANCOS SELECIONADOS - {', '.join(bancos_selecionados)}")
+    
+    return bancos_para_processar
+
+
+def processar_bancos(bancos_para_processar, config):
+    print(f"\n🔄 Processando extratos dos bancos selecionados...")
+    dfs = []
+    
+    for banco in bancos_para_processar:
+        arquivo_key = MAPEAMENTO_ARQUIVOS[banco]
+        arquivos = config['arquivos'][arquivo_key]
+        
+        tem_arquivos = False
+        if isinstance(arquivos, str):
+            tem_arquivos = arquivos and Path(arquivos).exists()
+        elif isinstance(arquivos, list):
+            tem_arquivos = any(arquivo and Path(arquivo).exists() for arquivo in arquivos)
+        
+        if tem_arquivos:
+            df_resultado = PROCESSADORES[banco](config)
+            if not df_resultado.empty:
+                dfs.append(df_resultado)
+    
+    return dfs
+
+
+def consolidar_dados(dfs):
+    if not dfs:
+        print("❌ Nenhum extrato foi processado com sucesso!")
+        return None
+    
+    print(f"\n🔗 Consolidando dados...")
+    df_consolidado = pd.concat(dfs, ignore_index=True)
+    
+    transacoes_antes = len(df_consolidado)
+    df_consolidado = df_consolidado[df_consolidado['Valor'] != 0]
+    transacoes_removidas = transacoes_antes - len(df_consolidado)
+    
+    if transacoes_removidas > 0:
+        print(f"   🗑️  Removidas {transacoes_removidas} transação(ões) com valor R$ 0,00")
+    
+    df_consolidado = df_consolidado.sort_values('Data').reset_index(drop=True)
+    
+    df_consolidado['Categoria'] = ''
+    df_consolidado['Descricao_Manual'] = ''
+    
+    return df_consolidado
+
+
+def mostrar_saldos_iniciais(bancos_para_processar, config):
+    saldos_iniciais = config['saldos_iniciais']
+    if 'bb' in bancos_para_processar:
+        print(f"      • BB: R$ {saldos_iniciais['bb']:.2f}")
+    if 'bradesco' in bancos_para_processar:
+        print(f"      • Bradesco: R$ {saldos_iniciais['bradesco']:.2f}")
+    if 'c6' in bancos_para_processar:
+        print(f"      • C6 Bank: R$ {saldos_iniciais['c6_bank']:.2f}")
+    if 'itau' in bancos_para_processar:
+        print(f"      • Itaú: R$ {saldos_iniciais['itau']:.2f}")
+
+
+def exportar_excel(df_consolidado, arquivo_output):
+    print(f"📄 Gerando planilha Excel...")
+    try:
+        df_consolidado.to_excel(arquivo_output, index=False)
+        print(f"   ✅ Arquivo '{arquivo_output}' criado com sucesso!")
+        return True
+    except Exception as e:
+        print(f"   ❌ Erro ao salvar Excel: {e}")
+        return False
+
+
+def processar_extratos(args, config):
+    bancos_para_processar = determinar_bancos_processar(args)
+    
+    print("🏦 PROCESSADOR DE EXTRATOS BANCÁRIOS")
+    print("="*40)
+    print(f"👤 Usuário: {config['usuario']['nome']} (CPF: {config['usuario']['cpf']})")
+    print("="*40)
+    
+    # Verificar e filtrar bancos com arquivos válidos
+    bancos_validos, avisos = verificar_e_filtrar_bancos(bancos_para_processar, config)
+    
+    # Mostrar avisos sobre arquivos faltando, mas continuar processamento
+    if avisos:
+        print("⚠️  Arquivos não encontrados (bancos serão ignorados):")
+        for aviso in avisos:
+            print(f"   • {aviso}")
+        print("💡 Dica: Verifique os caminhos no arquivo config.json")
+        print()
+    
+    # Verificar se há pelo menos um banco válido
+    if not bancos_validos:
+        print("❌ Nenhum banco tem arquivos válidos para processar!")
+        print("💡 Verifique se os caminhos dos arquivos estão corretos no config.json")
+        return False
+    
+    # Mostrar bancos que serão processados
+    bancos_validos_nomes = [NOMES_BANCOS[b] for b in bancos_validos]
+    print(f"✅ Processando bancos: {', '.join(bancos_validos_nomes)}")
+    print()
+    
+    dfs = processar_bancos(bancos_validos, config)
+    
+    df_consolidado = consolidar_dados(dfs)
+    if df_consolidado is None:
+        return False
+    
+    print(f"🧮 Calculando saldos...")
+    df_consolidado = calcular_saldos(df_consolidado, config)
+    mostrar_saldos_iniciais(bancos_validos, config)
+    
+    detectar_transferencias_proprias(df_consolidado, config)
+    
+    df_consolidado = df_consolidado[COLUNAS_PADRONIZADAS]
+    
+    arquivo_output = args.output if args.output else gerar_nome_arquivo_timestamped(config['arquivos']['output'])
+    exportar_excel(df_consolidado, arquivo_output)
+    
+    gerar_relatorio(df_consolidado)
+    
+    print(f"\n{'='*40}")
+    print("✅ PROCESSAMENTO CONCLUÍDO COM SUCESSO!")
+    print("="*40)
+    
+    return True

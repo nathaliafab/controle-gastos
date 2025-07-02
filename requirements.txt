@@ -1,0 +1,6 @@
+pandas
+pdfplumber
+plotly
+openpyxl
+xlrd
+python-dateutil
