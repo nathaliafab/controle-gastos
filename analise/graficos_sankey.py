@@ -35,7 +35,8 @@ def categorizar_receitas_por_palavras_chave(texto_completo):
     
     # Categorização de receitas por ordem de prioridade
     categorias_receitas = {
-        # Estornos e Devoluções
+        # Salário e Proventos
+        '💼 Salário e Proventos': ['REMUNERACAO', 'SALARIO', 'PROVENTO', 'VENCIMENTO', 'FOLHA'],
         '🔄 Estornos e Devoluções': ['ESTORNO', 'EST ', 'DEVOLUCAO', 'REEMBOLSO'],
         '💳 Cashback e Créditos': ['PAGAMENTO/CRÉDITO', 'CARTAO CREDITO', 'CREDITO CARTAO', 'COMPRA CARTAO', 'CASHBACK', 'RECOMPENSA'],
         
@@ -59,7 +60,6 @@ def categorizar_receitas_por_palavras_chave(texto_completo):
         
         # Outros
         '💳 Depósitos em Conta': ['DEPOSITO', 'CREDITO EM CONTA'],
-        '💼 Salário e Proventos': ['SALARIO', 'PROVENTO', 'VENCIMENTO', 'FOLHA'],
         '💰 Outros Créditos': ['CREDITO', 'APORTE']
     }
     
@@ -82,14 +82,14 @@ def categorizar_despesas_por_palavras_chave(texto_completo, categoria_auto=''):
     # Categorização de despesas por ordem de prioridade
     categorias_despesas = {
         # Investimentos - Aplicações
-        '🥇 Investimento - Ourocap': ['OUROCAP', 'APLICACAO OUROCAP'],
-        '📈 Investimento - Ações B3': ['B3', 'ACAO', 'ACOES', 'COMPRA ACAO', 'LIQUIDACAO COMPRA'],
         '🏦 Investimento - CDB': ['APLICACAO CDB', 'CDB'],
         '🏠 Investimento - LCI/LCA': ['APLICACAO LCI', 'APLICACAO LCA', 'LCI', 'LCA'],
         '🏛️ Investimento - Tesouro': ['APLICACAO TESOURO', 'TESOURO'],
         '📊 Investimento - Fundos': ['APLICACAO FUNDO', 'FUNDO'],
         '💎 Investimento - Outros': ['APLICACAO ATIVO', 'ATIVO'],
+        '🥇 Investimento - Ourocap': ['OUROCAP', 'APLICACAO OUROCAP'],
         '💰 Investimentos Diversos': ['APLICACAO'],
+        '📈 Investimento - Ações B3': ['B3', 'ACAO', 'ACOES', 'COMPRA ACAO', 'LIQUIDACAO COMPRA'],
         
         # Cartões e Débitos
         '💳 Cartão de Crédito': ['CARTAO CREDITO', 'CREDITO CARTAO', 'COMPRA CARTAO'],
