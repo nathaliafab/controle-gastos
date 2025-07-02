@@ -491,11 +491,10 @@ def analisar_gastos_sankey_proventos_detalhados(nome_arquivo_excel="controle_gas
         
         # Criar descrição completa
         df['Descricao_Completa'] = df.apply(criar_descricao_completa, axis=1)
-        df['Descricao_Upper'] = df['Descricao_Completa'].str.upper().fillna('')
         
-        # Filtrar transferências próprias
-        transferencias_proprias = ['TRANSFERENCIA PROPRIA', 'TRANSFERÊNCIA PRÓPRIA']
-        mask_transferencia = df['Descricao_Upper'].str.contains('|'.join(transferencias_proprias), na=False)
+        # Filtrar transferências próprias usando Categoria_Auto
+        transferencias_proprias = ['TRANSFERENCIA_PROPRIA', 'TRANSFERÊNCIA_PRÓPRIA', 'TRANSFERENCIA PROPRIA', 'TRANSFERÊNCIA PRÓPRIA']
+        mask_transferencia = df['Categoria_Auto'].str.upper().str.contains('|'.join(transferencias_proprias), na=False)
         df_processado = df[~mask_transferencia].copy()
         
         if df_processado.empty:
