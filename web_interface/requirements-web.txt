@@ -2,6 +2,7 @@
 Django==5.0.6
 whitenoise==6.7.0
 python-decouple==3.8
+gunicorn==22.0.0
 
 # ===== DEPENDÊNCIAS DO PROCESSADOR ORIGINAL =====
 pandas==2.2.2
@@ -10,5 +11,4 @@ xlrd==2.0.1
 PyPDF2==3.0.1
 
 # ===== DEPENDÊNCIAS PARA GRÁFICOS =====
-# (incluídas no processador principal se necessário)
-# plotly>=5.0.0
+plotly>=5.0.0
