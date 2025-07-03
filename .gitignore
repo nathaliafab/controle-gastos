@@ -8,58 +8,40 @@ extratos/
 *.xls
 *.xlsx
 
-# Output files
-output/
+# Django files
+db.sqlite3
+db.sqlite3-journal
+web_interface/db.sqlite3
+staticfiles/
+.env
 
-# Python
+# Django migrations (should be generated on each setup)
+web_interface/extratos_app/migrations/0*.py
+
+# Python files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
 
 # Virtual environments
-venv/
-env/
-ENV/
 .venv/
-.env/
+venv/
+ENV/
+env/
 
-# IDE
+# Output files
+output/
+
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS
+# OS files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
 # Logs
 *.log
-
-# Temporary files
-*.tmp
-*.temp

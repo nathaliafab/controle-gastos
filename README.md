@@ -2,47 +2,81 @@
 
 Sistema para unificar extratos de diferentes bancos em uma tabela única, facilitando análises posteriores.
 
+## Features
+
+- Processamento automático de extratos bancários
+- Categorização inteligente de transações
+- Identificação e filtro de transferências próprias
+- Geração de gráficos Sankey interativos
+- Interface web para facilitar o uso
+- Suporte a múltiplos arquivos por banco
+- Exportação em Excel
+
 ## Bancos Suportados
 
-- Banco do Brasil (conta corrente .csv e cartão de crédito .pdf)
-- Bradesco (conta corrente .csv)
-- C6 Bank (conta corrente .csv)
-- Itaú (conta corrente .xls e cartão de crédito .xls)
+| Banco                     | Tipo de Extrato                      | Formato  |
+| ------------------------- | ------------------------------------ | -------- |
+| **C6 Bank**         | Conta Corrente                       | CSV      |
+| **Bradesco**        | Conta Corrente                       | CSV      |
+| **Banco do Brasil** | Conta Corrente                       | CSV      |
+| **BB Cartão**      | Cartão de Crédito                  | PDF      |
+| **Itaú**           | Conta Corrente e Cartão de Crédito | XLS/XLSX |
 
-## Uso
+## Como Rodar
 
-1. Clone o repositório:
+### Pré-requisitos
 
-```bash
-git clone https://github.com/nathaliafab/controle-gastos.git
-cd controle-gastos
-```
+- Python 3.8+
+- Pip (gerenciador de pacotes do Python)
 
-2. Instale as dependências:
+### Instalação das Dependências
 
 ```bash
 pip install -r requirements.txt
+pip install -r web_interface/requirements-web.txt
 ```
 
-3. Copie o arquivo de exemplo:
+### Configurar Banco de Dados (primeira vez)
 
 ```bash
-cp config-exemplo.json config.json
+cd web_interface
+python3 manage.py makemigrations
+python3 manage.py migrate
+cd ..
 ```
 
-4. Edite o `config.json` com suas informações:
+### Executar o Sistema
 
-- Atualize os nomes dos arquivos de extrato
-- Preencha seu nome e CPF
-- Ajuste as categorias conforme necessário
+#### Interface Web (Padrão)
 
-## Como Usar
-
-1. Baixe os extratos dos bancos e coloque na pasta `extratos/`
-2. Execute o processador:
+Simplesmente execute o arquivo principal:
 
 ```bash
-python main.py
+python3 main.py
 ```
 
-O relatório será gerado na pasta `output/` em formato Excel.
+O sistema irá:
+
+1. Detectar automaticamente se o Django está instalado
+2. Executar migrações do banco de dados
+3. Iniciar o servidor web em `http://localhost:8000`
+
+#### Interface Terminal
+
+Para usar via linha de comando:
+
+```bash
+python3 main.py --help
+```
+
+Exemplo de uso:
+
+```bash
+python3 main.py --all
+```
+
+Ou diretamente:
+
+```bash
+python3 core/main_terminal.py --all
+```

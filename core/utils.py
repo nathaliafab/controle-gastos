@@ -80,9 +80,22 @@ def extrair_agencia_conta(arquivo_path: str, banco: str) -> str:
 
 
 def gerar_nome_arquivo_timestamped(base_path: str) -> str:
+    """Gerar nome de arquivo com timestamp baseado no caminho base fornecido"""
+    from pathlib import Path
+    
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    nome_base = "controle_gastos"
-    return f"output/{nome_base}_{timestamp}.xlsx"
+    
+    # Se base_path já contém um nome de arquivo, usar o diretório
+    base_path = Path(base_path)
+    if base_path.suffix:  # Se tem extensão, é um arquivo
+        diretorio = base_path.parent
+        nome_base = base_path.stem
+    else:  # Se não tem extensão, é um diretório
+        diretorio = base_path
+        nome_base = "controle_gastos"
+    
+    arquivo_final = diretorio / f"{nome_base}_{timestamp}.xlsx"
+    return str(arquivo_final)
 
 
 def categorizar_transacao_auto(tipo: str, descricao: str, valor: float, categorias: dict, agencia_conta: str = "") -> str:

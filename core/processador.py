@@ -16,6 +16,12 @@ def verificar_e_filtrar_bancos(bancos_para_processar, config):
     
     for banco in bancos_para_processar:
         arquivo_key = MAPEAMENTO_ARQUIVOS[banco]
+        
+        # Verificar se a chave existe na configuração
+        if arquivo_key not in config.get('arquivos', {}):
+            avisos.append(f"{banco.upper()}: Configuração não encontrada para '{arquivo_key}'")
+            continue
+            
         arquivos = config['arquivos'][arquivo_key]
         
         banco_tem_arquivos = False
@@ -37,8 +43,11 @@ def verificar_e_filtrar_bancos(bancos_para_processar, config):
             bancos_validos.append(banco)
         else:
             # Adicionar aviso sobre arquivos faltando
-            for arquivo in arquivos_faltando_banco:
-                avisos.append(f"{banco.upper()}: {arquivo}")
+            if arquivos_faltando_banco:
+                for arquivo in arquivos_faltando_banco:
+                    avisos.append(f"{banco.upper()}: {arquivo}")
+            else:
+                avisos.append(f"{banco.upper()}: Nenhum arquivo configurado")
     
     return bancos_validos, avisos
 
@@ -72,6 +81,12 @@ def processar_bancos(bancos_para_processar, config):
     
     for banco in bancos_para_processar:
         arquivo_key = MAPEAMENTO_ARQUIVOS[banco]
+        
+        # Verificar se a chave existe na configuração
+        if arquivo_key not in config.get('arquivos', {}):
+            print(f"   ⚠️  {banco.upper()}: Configuração não encontrada para '{arquivo_key}' - ignorando")
+            continue
+            
         arquivos = config['arquivos'][arquivo_key]
         
         tem_arquivos = False
@@ -81,9 +96,17 @@ def processar_bancos(bancos_para_processar, config):
             tem_arquivos = any(arquivo and Path(arquivo).exists() for arquivo in arquivos)
         
         if tem_arquivos:
-            df_resultado = PROCESSADORES[banco](config)
-            if not df_resultado.empty:
-                dfs.append(df_resultado)
+            try:
+                df_resultado = PROCESSADORES[banco](config)
+                if not df_resultado.empty:
+                    dfs.append(df_resultado)
+                    print(f"   ✅ {banco.upper()}: Processado com sucesso")
+                else:
+                    print(f"   ⚠️  {banco.upper()}: Nenhum dado encontrado")
+            except Exception as e:
+                print(f"   ❌ {banco.upper()}: Erro ao processar - {str(e)}")
+        else:
+            print(f"   ⚠️  {banco.upper()}: Arquivos não encontrados - ignorando")
     
     return dfs
 

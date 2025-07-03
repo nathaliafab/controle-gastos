@@ -1,0 +1,258 @@
+{% extends 'extratos_app/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Resultado - Controle de Gastos{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center">
+                <h1 class="display-4 fw-bold mb-3">
+                    <i class="fas fa-check-circle me-3 text-success"></i>
+                    Processamento Concluído
+                </h1>
+                <p class="lead mb-4">
+                    Seus extratos foram processados com sucesso!
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container my-5">
+    <!-- Informações do Processamento -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="card-title mb-3">
+                                <i class="fas fa-file-excel me-2 text-success"></i>
+                                Relatório Gerado
+                            </h4>
+                            
+                            <div class="row">
+                                {% if processamento.nome_usuario %}
+                                <div class="col-sm-6 mb-2">
+                                    <strong>Nome:</strong> {{ processamento.nome_usuario }}
+                                </div>
+                                {% endif %}
+                                {% if processamento.cpf_usuario %}
+                                <div class="col-sm-6 mb-2">
+                                    <strong>CPF:</strong> {{ processamento.cpf_usuario }}
+                                </div>
+                                {% endif %}
+                                <div class="col-sm-6 mb-2">
+                                    <strong>Data:</strong> {{ processamento.data_criacao|date:"d/m/Y H:i" }}
+                                </div>
+                                <div class="col-sm-6 mb-2">
+                                    <strong>Status:</strong>
+                                    {% if processamento.processado %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check me-1"></i>Concluído
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-clock me-1"></i>Processando
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            {% if processamento.arquivo_resultado %}
+                                <a href="{% url 'extratos:download' processamento.id %}" class="btn btn-success btn-lg">
+                                    <i class="fas fa-download me-2"></i>
+                                    Baixar Excel
+                                </a>
+                                <p class="text-muted small mt-2 mb-0">
+                                    Arquivo: {{ processamento.arquivo_resultado.name|cut:"resultados/" }}
+                                </p>
+                            {% else %}
+                                <p class="text-muted">Arquivo não disponível</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos Sankey -->
+    {% if sankey_geral or sankey_bancos %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body p-4">
+                    <h4 class="card-title mb-4">
+                        <i class="fas fa-chart-line me-2 text-primary"></i>
+                        Análise de Fluxo de Caixa
+                    </h4>
+                    
+                    <!-- Navegação entre abas -->
+                    <ul class="nav nav-tabs mb-4" id="sankeyTabs" role="tablist">
+                        {% if sankey_geral %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" 
+                                    id="tab-geral" 
+                                    data-bs-toggle="tab" 
+                                    data-bs-target="#pane-geral" 
+                                    type="button" 
+                                    role="tab"
+                                    aria-controls="pane-geral"
+                                    aria-selected="true">
+                                <i class="fas fa-chart-bar me-2"></i>Visão Geral
+                            </button>
+                        </li>
+                        {% endif %}
+                        {% for banco, sankey in sankey_bancos.items %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link {% if not sankey_geral and forloop.first %}active{% endif %}" 
+                                    id="tab-{{ banco|slugify_custom }}" 
+                                    data-bs-toggle="tab" 
+                                    data-bs-target="#pane-{{ banco|slugify_custom }}" 
+                                    type="button" 
+                                    role="tab"
+                                    aria-controls="pane-{{ banco|slugify_custom }}"
+                                    aria-selected="{% if not sankey_geral and forloop.first %}true{% else %}false{% endif %}">
+                                <i class="fas fa-university me-2"></i>{{ banco }}
+                            </button>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    
+                    <!-- Conteúdo das abas -->
+                    <div class="tab-content" id="sankeyTabContent">
+                        {% if sankey_geral %}
+                        <div class="tab-pane fade show active" 
+                             id="pane-geral" 
+                             role="tabpanel"
+                             aria-labelledby="tab-geral">
+                            <div class="sankey-container">
+                                {{ sankey_geral|safe }}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% for banco, sankey in sankey_bancos.items %}
+                        <div class="tab-pane fade {% if not sankey_geral and forloop.first %}show active{% endif %}" 
+                             id="pane-{{ banco|slugify_custom }}" 
+                             role="tabpanel"
+                             aria-labelledby="tab-{{ banco|slugify_custom }}">
+                            <div class="sankey-container">
+                                {{ sankey|safe }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Preview dos Dados -->
+    {% if dados_excel %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body p-4">
+                    <h4 class="card-title mb-4">
+                        <i class="fas fa-table me-2 text-primary"></i>
+                        Preview dos Dados (Primeiras 100 linhas)
+                    </h4>
+                    
+                    <div class="table-container">
+                        {{ dados_excel|safe }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Ações Fixas -->
+    <div class="sticky-actions">
+        <div class="row">
+            <div class="col-12 text-center">
+                <a href="{% url 'extratos:index' %}" class="btn btn-outline-primary btn-lg me-3">
+                    <i class="fas fa-plus me-2"></i>
+                    Novo Processamento
+                </a>
+                {% if processamento.arquivo_resultado %}
+                    <a href="{% url 'extratos:download' processamento.id %}" class="btn btn-success btn-lg">
+                        <i class="fas fa-download me-2"></i>
+                        Baixar Excel
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    enhanceTablesDisplay();
+    optimizeTableContainers();
+});
+
+/**
+ * Melhora a aparência das tabelas no preview
+ */
+function enhanceTablesDisplay() {
+    const tables = document.querySelectorAll('table');
+    
+    tables.forEach(table => {
+        // Adicionar classes Bootstrap para melhor aparência
+        table.classList.add('table', 'table-striped', 'table-hover', 'table-sm');
+        
+        // Verificar se já está em um container responsivo especial
+        if (!table.closest('.table-container')) {
+            addResponsiveWrapper(table);
+        }
+    });
+}
+
+/**
+ * Adiciona wrapper responsivo para tabelas se necessário
+ */
+function addResponsiveWrapper(table) {
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('table-responsive');
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    }
+}
+
+/**
+ * Otimiza contêineres de tabela baseado no número de linhas
+ */
+function optimizeTableContainers() {
+    const tableContainers = document.querySelectorAll('.table-container');
+    
+    tableContainers.forEach(container => {
+        const table = container.querySelector('table');
+        if (!table) return;
+        
+        const rowCount = table.querySelectorAll('tbody tr').length;
+        
+        // Ajustar altura baseado no número de linhas
+        if (rowCount > 20) {
+            container.style.maxHeight = '60vh';
+            container.style.overflowY = 'auto';
+        } else if (rowCount > 10) {
+            container.style.maxHeight = '40vh';
+            container.style.overflowY = 'auto';
+        }
+        
+        // Adicionar bordas suaves para scroll
+        if (container.style.overflowY === 'auto') {
+            container.style.border = '1px solid var(--border-color)';
+            container.style.borderRadius = 'var(--border-radius)';
+        }
+    });
+}
+</script>
+{% endblock %}

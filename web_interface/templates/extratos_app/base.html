@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema de Controle de Gastos - Análise de extratos bancários">
+    <meta name="author" content="Sistema de Extratos">
+    <title>{% block title %}Controle de Gastos{% endblock %}</title>
+    
+    <!-- CSS Frameworks -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous">
+    
+    <!-- Plotly para gráficos -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js" crossorigin="anonymous"></script>
+    
+    <style>
+        /* ===========================================
+         * CSS VARIABLES
+         * =========================================== */
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #3b82f6;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --gray-50: #f8fafc;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e0;
+            --gray-600: #6b7280;
+            --gray-900: #1f2937;
+            --border-radius: 8px;
+            --border-radius-lg: 12px;
+            --border-radius-xl: 16px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        /* ===========================================
+         * BASE STYLES
+         * =========================================== */
+        body {
+            background-color: var(--gray-50);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+        }
+
+        /* ===========================================
+         * NAVIGATION
+         * =========================================== */
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 4rem 0;
+        }
+        
+        /* ===========================================
+         * CARDS & CONTAINERS
+         * =========================================== */
+        .card {
+            border: none;
+            box-shadow: var(--shadow-md);
+            transition: all 0.2s ease-in-out;
+            border-radius: var(--border-radius-lg);
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .table-container {
+            max-height: 60vh;
+            overflow-y: auto;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--border-radius);
+            margin-bottom: 2rem;
+        }
+
+        .table-container .table {
+            margin-bottom: 0;
+        }
+
+        .table thead th {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .sankey-container {
+            background: white;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-md);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        /* ===========================================
+         * FORMS & INPUTS
+         * =========================================== */
+        .form-control {
+            border-radius: var(--border-radius);
+            border: 2px solid var(--gray-200);
+            transition: all 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        /* ===========================================
+         * BUTTONS
+         * =========================================== */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            border: none;
+            border-radius: var(--border-radius);
+            padding: 12px 24px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+        }
+
+        .add-file-btn {
+            background: linear-gradient(135deg, var(--success-color) 0%, #16a34a 100%);
+            border: none;
+            border-radius: var(--border-radius);
+            color: white;
+            padding: 8px 16px;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .add-file-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+            color: white;
+        }
+
+        .remove-file-btn {
+            background: var(--danger-color);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .remove-file-btn:hover {
+            background: #dc2626;
+            color: white;
+        }
+        
+        /* ===========================================
+         * BANK SECTIONS & CARDS
+         * =========================================== */
+        .banco-section {
+            border-left: 4px solid var(--primary-color);
+            background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+            border-radius: 0 var(--border-radius) var(--border-radius) 0;
+        }
+
+        .bank-card,
+        .modern-bank-card {
+            border: 2px solid var(--gray-200);
+            border-radius: var(--border-radius-lg);
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: white;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bank-card:hover,
+        .modern-bank-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modern-bank-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .modern-bank-card:hover::before {
+            left: 100%;
+        }
+
+        .modern-bank-card.configured {
+            border-color: var(--success-color);
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        }
+
+        .modern-bank-card.configured .bank-status {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .modern-bank-card.configured:hover {
+            border-color: var(--success-color);
+            box-shadow: 0 12px 24px rgba(16, 185, 129, 0.25);
+        }
+
+        /* Esconder checkboxes dos bancos */
+        .modern-bank-card input[type="checkbox"] {
+            display: none !important;
+        }
+
+        .bank-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+            color: var(--primary-color);
+            transition: all 0.3s ease;
+        }
+
+        /* Cores específicas para cada banco */
+        .bank-icon.bb,
+        .bank-icon.bb_cartao {
+            color: #f59e0b; /* Amarelo */
+        }
+
+        .bank-icon.bradesco {
+            color: #dc2626; /* Vermelho */
+        }
+
+        .bank-icon.itau {
+            color: #ea580c; /* Laranja */
+        }
+
+        .bank-icon.c6 {
+            color: #1f2937; /* Preto */
+        }
+
+        .modern-bank-card.configured .bank-icon {
+            color: var(--success-color);
+        }
+
+        .bank-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .bank-name {
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin: 0;
+            color: var(--gray-900);
+        }
+
+        .bank-desc {
+            font-size: 0.9rem;
+            color: var(--gray-600);
+            margin: 0;
+            font-weight: 500;
+        }
+
+        .bank-files {
+            font-size: 0.8rem;
+            color: var(--gray-500);
+            background: var(--gray-100);
+            padding: 4px 8px;
+            border-radius: var(--border-radius);
+            font-weight: 500;
+        }
+
+        .bank-status {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--gray-200);
+            color: var(--gray-500);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .modern-bank-card:hover .bank-status {
+            background: var(--primary-color);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .bank-card small {
+            font-size: 0.875rem;
+            opacity: 0.8;
+        }
+
+        /* ===========================================
+         * TOAST NOTIFICATIONS
+         * =========================================== */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 350px;
+        }
+
+        .toast {
+            border: none;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-xl);
+            margin-bottom: 10px;
+        }
+
+        .toast.bg-success {
+            background: linear-gradient(135deg, var(--success-color) 0%, #16a34a 100%) !important;
+        }
+
+        .toast-body {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        /* ===========================================
+         * FILE INPUT STYLES
+         * =========================================== */
+        .file-input-group {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: var(--border-radius);
+            border: 1px solid var(--gray-200);
+        }
+
+        .file-input-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* ===========================================
+         * CONFIGURATION OPTIONS
+         * =========================================== */
+        .config-option-card {
+            border: 2px solid var(--gray-200);
+            border-radius: var(--border-radius-xl);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .config-option-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .config-option-card.selected {
+            border-color: var(--primary-color);
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%);
+        }
+
+        .config-card-content {
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .config-icon {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .config-title {
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 0.75rem;
+        }
+
+        .config-description {
+            color: var(--gray-600);
+            font-size: 0.875rem;
+            margin-bottom: 0;
+        }
+
+        .config-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: var(--success-color);
+            font-size: 1.2rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .config-option-card.selected .config-badge {
+            opacity: 1;
+        }
+
+        /* ===========================================
+         * UTILITY CLASSES
+         * =========================================== */
+        .sticky-actions {
+            position: sticky;
+            bottom: 20px;
+            z-index: 100;
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-xl);
+            border: 1px solid var(--gray-200);
+        }
+
+        .alert {
+            border-radius: var(--border-radius);
+            border: none;
+        }
+
+        .table {
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        footer {
+            background-color: var(--gray-900);
+            color: white;
+            padding: 2rem 0;
+            margin-top: 4rem;
+        }
+
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        /* ===========================================
+         * RESPONSIVE DESIGN
+         * =========================================== */
+        @media (max-width: 768px) {
+            .hero-section {
+                padding: 2rem 0;
+            }
+            
+            .config-card-content {
+                padding: 1.5rem;
+            }
+            
+            .bank-card,
+            .modern-bank-card {
+                padding: 1rem;
+            }
+            
+            .sticky-actions {
+                bottom: 10px;
+                padding: 15px;
+            }
+        }
+    </style>
+    {% block extra_css %}
+    {% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="{% url 'extratos:index' %}">
+                <i class="fas fa-chart-line me-2"></i>
+                Controle de Gastos
+            </a>
+        </div>
+    </nav>
+
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Container para toasts -->
+    <div class="toast-container"></div>
+
+    <footer>
+        <div class="container text-center">
+            <p class="mb-2">&copy; 2025 Sistema de Controle de Gastos. Desenvolvido com ❤️</p>
+            <p class="mb-0">
+                <a href="https://github.com/nathaliafab/controle-gastos" target="_blank" class="text-light text-decoration-none">
+                    <i class="fab fa-github me-2"></i>
+                    Código-fonte no GitHub
+                </a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Mostrar/esconder seções de arquivo baseado no checkbox
+        document.addEventListener('DOMContentLoaded', function() {
+            const bancos = ['c6', 'bradesco', 'bb', 'bb_cartao', 'itau'];
+            
+            bancos.forEach(banco => {
+                const checkbox = document.getElementById(`id_usar_${banco}`);
+                const section = document.getElementById(`section_${banco}`);
+                
+                if (checkbox && section) {
+                    checkbox.addEventListener('change', function() {
+                        if (this.checked) {
+                            section.style.display = 'block';
+                            section.scrollIntoView({ behavior: 'smooth' });
+                        } else {
+                            section.style.display = 'none';
+                        }
+                    });
+                    
+                    // Estado inicial
+                    section.style.display = checkbox.checked ? 'block' : 'none';
+                }
+            });
+            
+            // Flag para controlar loading do formulário
+            window.formValidationPassed = false;
+            
+            // Loading state no formulário (apenas se validação passou)
+            const form = document.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    // Só aplica loading se a validação passou
+                    if (window.formValidationPassed) {
+                        const submitBtn = form.querySelector('button[type="submit"]');
+                        if (submitBtn) {
+                            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processando...';
+                            submitBtn.disabled = true;
+                        }
+                        document.body.classList.add('loading');
+                    }
+                });
+            }
+        });
+        
+        // Função para adicionar novo campo de arquivo
+        function addFileInput(banco) {
+            const container = document.getElementById(`files_${banco}`);
+            const fileCount = container.children.length;
+            const newIndex = fileCount;
+            
+            const fileGroup = document.createElement('div');
+            fileGroup.className = 'file-input-group';
+            fileGroup.innerHTML = `
+                <div class="d-flex align-items-center gap-2">
+                    <div class="flex-grow-1">
+                        <label class="form-label fw-semibold">Arquivo ${newIndex + 1}</label>
+                        <input type="file" name="arquivos_${banco}_${newIndex}" class="form-control" accept=".csv,.xls,.xlsx">
+                    </div>
+                    <button type="button" class="remove-file-btn" onclick="removeFileInput(this)">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            
+            container.appendChild(fileGroup);
+        }
+        
+        // Função para remover campo de arquivo
+        function removeFileInput(button) {
+            const fileGroup = button.closest('.file-input-group');
+            fileGroup.remove();
+        }
+        
+        // Configuração de upload de arquivo de config
+        document.addEventListener('DOMContentLoaded', function() {
+            const configRadios = document.querySelectorAll('input[name="config_type"]');
+            const manualConfig = document.getElementById('manual-config');
+            const configFileSection = document.getElementById('config-file-section');
+            
+            configRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'manual') {
+                        manualConfig.style.display = 'block';
+                        configFileSection.style.display = 'none';
+                    } else {
+                        manualConfig.style.display = 'none';
+                        configFileSection.style.display = 'block';
+                    }
+                });
+            });
+            
+            // Cards de configuração clicáveis
+            const configCards = document.querySelectorAll('.config-option-card');
+            configCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    const type = this.dataset.type;
+                    const radio = document.getElementById(type);
+                    
+                    // Remove selected de todos os cards
+                    configCards.forEach(c => c.classList.remove('selected'));
+                    
+                    // Adiciona selected no card clicado
+                    this.classList.add('selected');
+                    
+                    // Marca o radio
+                    radio.checked = true;
+                    radio.dispatchEvent(new Event('change'));
+                });
+            });
+            
+            // Estado inicial dos cards
+            const selectedRadio = document.querySelector('input[name="config_type"]:checked');
+            if (selectedRadio) {
+                const selectedCard = document.querySelector(`[data-type="${selectedRadio.value}"]`);
+                if (selectedCard) {
+                    selectedCard.classList.add('selected');
+                }
+            }
+            
+            // Upload moderno de arquivo de configuração
+            const uploadArea = document.getElementById('configUploadArea');
+            const fileInput = document.querySelector('#config-file-section input[type="file"]');
+            
+            if (uploadArea && fileInput) {
+                // Clique na área de upload
+                uploadArea.addEventListener('click', function() {
+                    fileInput.click();
+                });
+                
+                // Mudança no input de arquivo
+                fileInput.addEventListener('change', function() {
+                    if (this.files && this.files.length > 0) {
+                        uploadArea.classList.add('has-file');
+                    } else {
+                        uploadArea.classList.remove('has-file');
+                    }
+                });
+                
+                // Drag and drop
+                uploadArea.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    this.classList.add('dragover');
+                });
+                
+                uploadArea.addEventListener('dragleave', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('dragover');
+                });
+                
+                uploadArea.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('dragover');
+                    
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        fileInput.files = files;
+                        fileInput.dispatchEvent(new Event('change'));
+                    }
+                });
+            }
+        });
+
+        // Função utilitária para criar toasts
+        function showToast(message, type = 'success', duration = 4000) {
+            const toastContainer = document.querySelector('.toast-container');
+            if (!toastContainer) return;
+
+            const toastId = 'toast_' + Date.now();
+            const iconMap = {
+                'success': 'fas fa-check-circle',
+                'error': 'fas fa-exclamation-triangle',
+                'warning': 'fas fa-exclamation-circle',
+                'info': 'fas fa-info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.id = toastId;
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
+            
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="${iconMap[type]} me-2"></i>
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+
+            toastContainer.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast, {
+                autohide: true,
+                delay: duration
+            });
+            
+            bsToast.show();
+
+            // Remover o toast do DOM após ele desaparecer
+            toast.addEventListener('hidden.bs.toast', function() {
+                this.remove();
+            });
+
+            return bsToast;
+        }
+    </script>
+    
+    {% block extra_js %}
+    {% endblock %}
+</body>
+</html>

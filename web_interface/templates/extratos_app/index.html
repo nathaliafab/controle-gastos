@@ -1,0 +1,1375 @@
+{% extends 'extratos_app/base.html' %}
+
+{% block title %}Controle de Gastos - Importar Extratos{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center">
+                <h1 class="display-4 fw-bold mb-3">
+                    <i class="fas fa-chart-line me-3"></i>
+                    Controle de Gastos
+                </h1>
+                <p class="lead mb-4">
+                    Importe seus extratos bancários e gere relatórios completos de controle financeiro
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container my-5">
+    <!-- Mensagens -->
+    {% if messages %}
+        <div class="row mb-4">
+            <div class="col-12">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {% if message.tags == 'error' %}
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                        {% else %}
+                            <i class="fas fa-check-circle me-2"></i>
+                        {% endif %}
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" action="{% url 'extratos:processar' %}" id="extratoForm">
+        {% csrf_token %}
+        
+        <!-- Opção de Configuração -->
+        <div class="row mb-5">
+            <div class="col-lg-10 mx-auto">
+                <div class="card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title mb-4">
+                            <i class="fas fa-cog me-2 text-primary"></i>
+                            Como deseja configurar?
+                        </h4>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="config-option-card" data-type="manual">
+                                    <input class="form-check-input d-none" type="radio" name="config_type" id="manual" value="manual" checked>
+                                    <div class="config-card-content">
+                                        <div class="config-icon">
+                                            <i class="fas fa-cogs"></i>
+                                        </div>
+                                        <h5 class="config-title">Configuração Manual</h5>
+                                        <p class="config-description">Preencha nome, CPF e selecione bancos manualmente</p>
+                                        <div class="config-badge">
+                                            <i class="fas fa-check-circle"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="config-option-card" data-type="arquivo">
+                                    <input class="form-check-input d-none" type="radio" name="config_type" id="arquivo" value="arquivo">
+                                    <div class="config-card-content">
+                                        <div class="config-icon">
+                                            <i class="fas fa-file-code"></i>
+                                        </div>
+                                        <h5 class="config-title">Arquivo de Configuração</h5>
+                                        <p class="config-description">Importe um arquivo JSON com todas as configurações</p>
+                                        <div class="config-badge">
+                                            <i class="fas fa-check-circle"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Upload de Configuração -->
+                        <div id="config-file-section" style="display: none;">
+                            <div class="alert alert-info mb-4">
+                                <h6><i class="fas fa-info-circle me-2"></i>Arquivo de Configuração</h6>
+                                <p class="mb-0">
+                                    Ao usar um arquivo de configuração JSON, todos os dados (nome, CPF, bancos e arquivos) serão carregados automaticamente do arquivo. 
+                                    Não será necessário preencher dados manualmente.
+                                </p>
+                            </div>
+                            
+                            <div class="modern-file-upload" id="configUploadArea">
+                                <div class="upload-zone" id="uploadZone">
+                                    <div class="upload-content">
+                                        <div class="upload-icon">
+                                            <i class="fas fa-cloud-upload-alt"></i>
+                                        </div>
+                                        <h5 class="upload-title">Selecione seu arquivo JSON</h5>
+                                        <p class="upload-subtitle">Clique aqui ou arraste o arquivo para esta área</p>
+                                        
+                                        {{ form.arquivo_config }}
+                                        
+                                        <div class="upload-info">
+                                            <small class="text-muted">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                Apenas arquivos .json são aceitos
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="file-selected-state" id="fileSelectedState" style="display: none;">
+                                    <div class="selected-file-info">
+                                        <div class="file-icon">
+                                            <i class="fas fa-file-code"></i>
+                                        </div>
+                                        <div class="file-details">
+                                            <h6 class="file-name" id="selectedFileName">arquivo.json</h6>
+                                            <p class="file-status">
+                                                <i class="fas fa-check-circle text-success me-1"></i>
+                                                Arquivo pronto para processamento
+                                            </p>
+                                        </div>
+                                        <button type="button" class="btn-remove-file" id="removeFileBtn">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuração Manual -->
+        <div id="manual-config" class="manual-section">
+            <!-- Dados do Usuário -->
+            <div class="row mb-5">
+                <div class="col-lg-10 mx-auto">
+                    <div class="card">
+                        <div class="card-body p-4">
+                            <h4 class="card-title mb-4">
+                                <i class="fas fa-user me-2 text-primary"></i>
+                                Dados Pessoais
+                            </h4>
+                            
+                            <div class="row">
+                                <div class="col-md-8 mb-3">
+                                    <label for="{{ form.nome_usuario.id_for_label }}" class="form-label fw-semibold">
+                                        {{ form.nome_usuario.label }}
+                                    </label>
+                                    {{ form.nome_usuario }}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.cpf_usuario.id_for_label }}" class="form-label fw-semibold">
+                                        {{ form.cpf_usuario.label }}
+                                    </label>
+                                    {{ form.cpf_usuario }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seleção de Bancos -->
+            <div class="row mb-5">
+                <div class="col-lg-10 mx-auto">
+                    <div class="card">
+                        <div class="card-body p-4">
+                            <h4 class="card-title mb-4">
+                                <i class="fas fa-university me-2 text-primary"></i>
+                                Selecione os Bancos
+                            </h4>
+                            <p class="text-muted mb-4">
+                                Clique nos bancos para configurar os dados e fazer upload dos extratos<br>
+                                <small><i class="fas fa-info-circle me-1"></i>Dica: Clique com o botão direito para desmarcar um banco já configurado</small>
+                            </p>
+                            
+                            <div class="row">
+                                <!-- C6 Bank -->
+                                <div class="col-md-6 col-lg-4 mb-4">
+                                    <div class="modern-bank-card" data-bank="c6" data-bs-toggle="modal" data-bs-target="#modalC6">
+                                        <div class="bank-icon c6">
+                                            <i class="fas fa-building"></i>
+                                        </div>
+                                        <div class="bank-info">
+                                            <h5 class="bank-name">C6 Bank</h5>
+                                            <p class="bank-desc">Conta Corrente</p>
+                                            <span class="bank-files">1 arquivo CSV</span>
+                                        </div>
+                                        <div class="bank-status" id="status-c6">
+                                            <i class="fas fa-plus-circle"></i>
+                                        </div>
+                                        {{ form.usar_c6 }}
+                                    </div>
+                                </div>
+
+                                <!-- Bradesco -->
+                                <div class="col-md-6 col-lg-4 mb-4">
+                                    <div class="modern-bank-card" data-bank="bradesco" data-bs-toggle="modal" data-bs-target="#modalBradesco">
+                                        <div class="bank-icon bradesco">
+                                            <i class="fas fa-building"></i>
+                                        </div>
+                                        <div class="bank-info">
+                                            <h5 class="bank-name">Bradesco</h5>
+                                            <p class="bank-desc">Conta Corrente</p>
+                                            <span class="bank-files">1 arquivo CSV</span>
+                                        </div>
+                                        <div class="bank-status" id="status-bradesco">
+                                            <i class="fas fa-plus-circle"></i>
+                                        </div>
+                                        {{ form.usar_bradesco }}
+                                    </div>
+                                </div>
+
+                                <!-- Banco do Brasil -->
+                                <div class="col-md-6 col-lg-4 mb-4">
+                                    <div class="modern-bank-card" data-bank="bb" data-bs-toggle="modal" data-bs-target="#modalBB">
+                                        <div class="bank-icon bb">
+                                            <i class="fas fa-building"></i>
+                                        </div>
+                                        <div class="bank-info">
+                                            <h5 class="bank-name">Banco do Brasil</h5>
+                                            <p class="bank-desc">Conta Corrente</p>
+                                            <span class="bank-files">Múltiplos arquivos CSV</span>
+                                        </div>
+                                        <div class="bank-status" id="status-bb">
+                                            <i class="fas fa-plus-circle"></i>
+                                        </div>
+                                        {{ form.usar_bb }}
+                                    </div>
+                                </div>
+
+                                <!-- BB Cartão -->
+                                <div class="col-md-6 col-lg-4 mb-4">
+                                    <div class="modern-bank-card" data-bank="bb_cartao" data-bs-toggle="modal" data-bs-target="#modalBBCartao">
+                                        <div class="bank-icon bb_cartao">
+                                            <i class="fas fa-credit-card"></i>
+                                        </div>
+                                        <div class="bank-info">
+                                            <h5 class="bank-name">BB Cartão</h5>
+                                            <p class="bank-desc">Cartão de Crédito</p>
+                                            <span class="bank-files">Múltiplos arquivos PDF</span>
+                                        </div>
+                                        <div class="bank-status" id="status-bb_cartao">
+                                            <i class="fas fa-plus-circle"></i>
+                                        </div>
+                                        {{ form.usar_bb_cartao }}
+                                    </div>
+                                </div>
+
+                                <!-- Itaú -->
+                                <div class="col-md-6 col-lg-4 mb-4">
+                                    <div class="modern-bank-card" data-bank="itau" data-bs-toggle="modal" data-bs-target="#modalItau">
+                                        <div class="bank-icon itau">
+                                            <i class="fas fa-building"></i>
+                                        </div>
+                                        <div class="bank-info">
+                                            <h5 class="bank-name">Itaú</h5>
+                                            <p class="bank-desc">Conta Corrente e Cartão de Crédito</p>
+                                            <span class="bank-files">Múltiplos arquivos XLS/XLSX</span>
+                                        </div>
+                                        <div class="bank-status" id="status-itau">
+                                            <i class="fas fa-plus-circle"></i>
+                                        </div>
+                                        {{ form.usar_itau }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Resumo dos bancos selecionados -->
+                            <div id="selected-banks-summary" class="mt-4" style="display: none;">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-info-circle me-2"></i>Bancos Selecionados:</h6>
+                                    <div id="summary-list"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botão de Submit -->
+        <div class="row mt-5">
+            <div class="col-lg-10 mx-auto text-center">
+                <button type="submit" class="btn btn-primary btn-lg px-5 py-3">
+                    <i class="fas fa-cogs me-2"></i>
+                    Processar Extratos
+                </button>
+            </div>
+        </div>
+        
+        <!-- Modais para cada banco -->
+
+        <!-- Modal C6 Bank -->
+        <div class="modal fade" id="modalC6" tabindex="-1" aria-labelledby="modalC6Label" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalC6Label">
+                            <i class="fas fa-building me-2 text-dark"></i>
+                            Configurar C6 Bank
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.saldo_inicial_c6.id_for_label }}" class="form-label fw-semibold">
+                            <i class="fas fa-dollar-sign me-2"></i>
+                            {{ form.saldo_inicial_c6.label }}
+                        </label>
+                        {{ form.saldo_inicial_c6 }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <label class="form-label fw-semibold mb-3">
+                            <i class="fas fa-file-csv me-2"></i>
+                            Arquivo do Extrato
+                        </label>
+                        <div class="file-input-group-modal">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="flex-grow-1">
+                                    {{ form.arquivo_c6 }}
+                                </div>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">Formatos aceitos: CSV</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="configureBank('c6')" data-bs-dismiss="modal">Configurar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Bradesco -->
+<div class="modal fade" id="modalBradesco" tabindex="-1" aria-labelledby="modalBradescoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalBradescoLabel">
+                    <i class="fas fa-building me-2 text-danger"></i>
+                    Configurar Bradesco
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.saldo_inicial_bradesco.id_for_label }}" class="form-label fw-semibold">
+                            <i class="fas fa-dollar-sign me-2"></i>
+                            {{ form.saldo_inicial_bradesco.label }}
+                        </label>
+                        {{ form.saldo_inicial_bradesco }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <label class="form-label fw-semibold mb-3">
+                            <i class="fas fa-file-csv me-2"></i>
+                            Arquivo do Extrato
+                        </label>
+                        <div class="file-input-group-modal">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="flex-grow-1">
+                                    {{ form.arquivo_bradesco }}
+                                </div>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">Formatos aceitos: CSV</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="configureBank('bradesco')" data-bs-dismiss="modal">Configurar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Banco do Brasil -->
+<div class="modal fade" id="modalBB" tabindex="-1" aria-labelledby="modalBBLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalBBLabel">
+                    <i class="fas fa-building me-2 text-warning"></i>
+                    Configurar Banco do Brasil
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.saldo_inicial_bb.id_for_label }}" class="form-label fw-semibold">
+                            <i class="fas fa-dollar-sign me-2"></i>
+                            {{ form.saldo_inicial_bb.label }}
+                        </label>
+                        {{ form.saldo_inicial_bb }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <label class="form-label fw-semibold mb-0">
+                                <i class="fas fa-file-csv me-2"></i>
+                                Arquivos dos Extratos
+                            </label>
+                            <button type="button" class="add-file-btn-modern" onclick="addFileInputModal('bb')">
+                                <i class="fas fa-plus"></i>
+                                <span>Adicionar Arquivo</span>
+                            </button>
+                        </div>
+                        <div id="modal_files_bb">
+                            <div class="file-input-group-modal">
+                                <div class="d-flex align-items-start gap-2">
+                                    <div class="flex-grow-1">
+                                        <label class="form-label fw-semibold">Arquivo 1</label>
+                                        <input type="file" name="arquivos_bb_0" class="form-control" accept=".csv">
+                                    </div>
+                                    <button type="button" class="remove-file-btn-modern" onclick="removeFileInputModal(this)" style="display: none;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">Formatos aceitos: CSV</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="configureBank('bb')" data-bs-dismiss="modal">Configurar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal BB Cartão -->
+<div class="modal fade" id="modalBBCartao" tabindex="-1" aria-labelledby="modalBBCartaoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalBBCartaoLabel">
+                    <i class="fas fa-credit-card me-2 text-warning"></i>
+                    Configurar BB Cartão
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <label class="form-label fw-semibold mb-0">
+                                <i class="fas fa-file-csv me-2"></i>
+                                Arquivos dos Extratos
+                            </label>
+                            <button type="button" class="add-file-btn-modern" onclick="addFileInputModal('bb_cartao')">
+                                <i class="fas fa-plus"></i>
+                                <span>Adicionar Arquivo</span>
+                            </button>
+                        </div>
+                        <div id="modal_files_bb_cartao">
+                            <div class="file-input-group-modal">
+                                <div class="d-flex align-items-start gap-2">
+                                    <div class="flex-grow-1">
+                                        <label class="form-label fw-semibold">Arquivo 1</label>
+                                        <input type="file" name="arquivos_bb_cartao_0" class="form-control" accept=".pdf">
+                                    </div>
+                                    <button type="button" class="remove-file-btn-modern" onclick="removeFileInputModal(this)" style="display: none;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">Formatos aceitos: PDF</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="configureBank('bb_cartao')" data-bs-dismiss="modal">Configurar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Itaú -->
+<div class="modal fade" id="modalItau" tabindex="-1" aria-labelledby="modalItauLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalItauLabel">
+                    <i class="fas fa-building me-2 text-primary"></i>
+                    Configurar Itaú
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.saldo_inicial_itau.id_for_label }}" class="form-label fw-semibold">
+                            <i class="fas fa-dollar-sign me-2"></i>
+                            {{ form.saldo_inicial_itau.label }}
+                        </label>
+                        {{ form.saldo_inicial_itau }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <label class="form-label fw-semibold mb-0">
+                                <i class="fas fa-file-csv me-2"></i>
+                                Arquivos dos Extratos
+                            </label>
+                            <button type="button" class="add-file-btn-modern" onclick="addFileInputModal('itau')">
+                                <i class="fas fa-plus"></i>
+                                <span>Adicionar Arquivo</span>
+                            </button>
+                        </div>
+                        <div id="modal_files_itau">
+                            <div class="file-input-group-modal">
+                                <div class="d-flex align-items-start gap-2">
+                                    <div class="flex-grow-1">
+                                        <label class="form-label fw-semibold">Arquivo 1</label>
+                                        <input type="file" name="arquivos_itau_0" class="form-control" accept=".xls,.xlsx">
+                                    </div>
+                                    <button type="button" class="remove-file-btn-modern" onclick="removeFileInputModal(this)" style="display: none;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">Formatos aceitos: XLS, XLSX</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="configureBank('itau')" data-bs-dismiss="modal">Configurar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+    </form>
+</div>
+
+<style>
+/* ===== UPLOAD MODERNO - ESTILOS ESPECÍFICOS ===== */
+.modern-file-upload {
+    position: relative;
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.upload-zone {
+    border: 2px dashed var(--gray-300);
+    border-radius: var(--border-radius-lg);
+    padding: 60px 40px;
+    text-align: center;
+    background: linear-gradient(135deg, var(--gray-50) 0%, white 100%);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    min-height: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload-zone:hover {
+    border-color: var(--primary-color);
+    background: linear-gradient(135deg, #f0f8ff 0%, white 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(0, 123, 255, 0.15);
+}
+
+.upload-zone.dragover {
+    border-color: var(--success-color);
+    background: linear-gradient(135deg, #f0fff4 0%, white 100%);
+    transform: scale(1.02);
+    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.2);
+}
+
+.upload-content {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+}
+
+.upload-icon {
+    font-size: 4rem;
+    color: var(--gray-600);
+    margin-bottom: 25px;
+    transition: all 0.3s ease;
+}
+
+.upload-zone:hover .upload-icon {
+    color: var(--primary-color);
+    transform: scale(1.15);
+}
+
+.upload-title {
+    color: var(--gray-900);
+    font-weight: 600;
+    margin-bottom: 12px;
+    font-size: 1.4rem;
+}
+
+.upload-subtitle {
+    color: var(--gray-600);
+    margin-bottom: 30px;
+    font-size: 1rem;
+}
+
+.upload-info {
+    margin-top: 20px;
+}
+
+/* Arquivo selecionado */
+.file-selected-state {
+    border: 2px solid var(--success-color);
+    border-radius: var(--border-radius-lg);
+    background: linear-gradient(135deg, #f8fff4 0%, white 100%);
+    padding: 30px;
+    animation: slideIn 0.4s ease;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.selected-file-info {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+    width: 100%;
+}
+
+.file-icon {
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(135deg, var(--success-color) 0%, #20c997 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.8rem;
+    flex-shrink: 0;
+}
+
+.file-details {
+    flex: 1;
+    text-align: left;
+}
+
+.file-name {
+    margin: 0 0 8px 0;
+    color: var(--gray-900);
+    font-weight: 600;
+    font-size: 1.2rem;
+}
+
+.file-status {
+    margin: 0;
+    color: var(--success-color);
+    font-size: 1rem;
+}
+
+.btn-remove-file {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: var(--danger-color);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+}
+
+.btn-remove-file:hover {
+    background: #c82333;
+    transform: scale(1.15);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .upload-zone {
+        padding: 40px 25px;
+        min-height: 200px;
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+    }
+    
+    .upload-title {
+        font-size: 1.2rem;
+    }
+    
+    .upload-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .selected-file-info {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+    }
+    
+    .file-details {
+        text-align: center;
+    }
+    
+    .file-icon {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .upload-zone {
+        padding: 30px 20px;
+        min-height: 180px;
+    }
+    
+    .upload-icon {
+        font-size: 2.5rem;
+        margin-bottom: 20px;
+    }
+    
+    .upload-title {
+        font-size: 1.1rem;
+    }
+    
+    .upload-subtitle {
+        font-size: 0.85rem;
+        margin-bottom: 25px;
+    }
+}
+
+/* ===== BOTÕES MODERNOS DOS MODAIS ===== */
+/* Botões de adicionar arquivo */
+.add-file-btn-modern {
+    background: linear-gradient(135deg, #6c63ff 0%, #5a52d5 100%);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(108, 99, 255, 0.3);
+    min-width: 140px;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.add-file-btn-modern:hover {
+    background: linear-gradient(135deg, #5a52d5 0%, #4c46b8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(108, 99, 255, 0.4);
+    color: white;
+}
+
+.add-file-btn-modern:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(108, 99, 255, 0.3);
+}
+
+.add-file-btn-modern i {
+    font-size: 12px;
+}
+
+.add-file-btn-modern span {
+    font-size: 13px;
+}
+
+/* Botões de remover arquivo modernos */
+.remove-file-btn-modern {
+    background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(255, 71, 87, 0.3);
+    min-width: 36px;
+    height: 36px;
+    cursor: pointer;
+}
+
+.remove-file-btn-modern:hover {
+    background: linear-gradient(135deg, #ff3838 0%, #ff2424 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 71, 87, 0.4);
+    color: white;
+}
+
+.remove-file-btn-modern:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(255, 71, 87, 0.3);
+}
+
+.remove-file-btn-modern i {
+    font-size: 14px;
+}
+
+/* Estilos para grupos de arquivo nos modais */
+.file-input-group-modal {
+    margin-bottom: 16px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.file-input-group-modal:hover {
+    border-color: #dee2e6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.file-input-group-modal .form-label {
+    color: #495057;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.file-input-group-modal .form-control {
+    border-radius: 8px;
+    border: 1px solid #ced4da;
+    padding: 10px 12px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.file-input-group-modal .form-control:focus {
+    border-color: #6c63ff;
+    box-shadow: 0 0 0 0.2rem rgba(108, 99, 255, 0.15);
+}
+
+/* Responsividade para botões dos modais */
+@media (max-width: 768px) {
+    .add-file-btn-modern {
+        min-width: 120px;
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+    
+    .add-file-btn-modern i {
+        font-size: 11px;
+    }
+    
+    .add-file-btn-modern span {
+        font-size: 12px;
+    }
+    
+    .remove-file-btn-modern {
+        min-width: 32px;
+        height: 32px;
+        padding: 6px 8px;
+    }
+    
+    .remove-file-btn-modern i {
+        font-size: 12px;
+    }
+}
+</style>
+
+<script>
+// ===== CONFIGURAÇÃO E GERENCIAMENTO DE FORMULÁRIO =====
+document.addEventListener('DOMContentLoaded', function() {
+    initializeFormControls();
+    initializeFileUploads();
+    initializeBankCards();
+});
+
+// Inicializa controles do formulário
+function initializeFormControls() {
+    const manualRadio = document.getElementById('manual');
+    const arquivoRadio = document.getElementById('arquivo');
+    const manualConfig = document.getElementById('manual-config');
+    const configFileSection = document.getElementById('config-file-section');
+    
+    function toggleConfigType() {
+        if (arquivoRadio.checked) {
+            manualConfig.style.display = 'none';
+            configFileSection.style.display = 'block';
+        } else {
+            manualConfig.style.display = 'block';
+            configFileSection.style.display = 'none';
+        }
+    }
+    
+    manualRadio.addEventListener('change', toggleConfigType);
+    arquivoRadio.addEventListener('change', toggleConfigType);
+    
+    updateBanksSummary();
+}
+
+// Inicializa uploads de arquivos
+function initializeFileUploads() {
+    const configFileInput = document.querySelector('input[name="arquivo_config"]');
+    if (!configFileInput) return;
+    
+    let isFileDialogOpen = false;
+    
+    configFileInput.addEventListener('change', function(e) {
+        isFileDialogOpen = false;
+        
+        const uploadZone = document.getElementById('uploadZone');
+        const fileSelectedState = document.getElementById('fileSelectedState');
+        const selectedFileName = document.getElementById('selectedFileName');
+        
+        if (e.target.files.length > 0) {
+            const fileName = e.target.files[0].name;
+            selectedFileName.textContent = fileName;
+            uploadZone.style.display = 'none';
+            fileSelectedState.style.display = 'block';
+        } else {
+            uploadZone.style.display = 'block';
+            fileSelectedState.style.display = 'none';
+        }
+    });
+    
+    // Botão remover arquivo
+    const removeFileBtn = document.getElementById('removeFileBtn');
+    if (removeFileBtn) {
+        removeFileBtn.addEventListener('click', function() {
+            isFileDialogOpen = false;
+            configFileInput.value = '';
+            document.getElementById('uploadZone').style.display = 'block';
+            document.getElementById('fileSelectedState').style.display = 'none';
+        });
+    }
+    
+    // Configurar drag & drop
+    setupDragAndDrop(configFileInput, isFileDialogOpen);
+    
+    // Focus listener para detectar cancelamento de dialog
+    window.addEventListener('focus', function() {
+        setTimeout(() => {
+            isFileDialogOpen = false;
+        }, 300);
+    });
+}
+
+// Configura drag and drop
+function setupDragAndDrop(configFileInput, isFileDialogOpen) {
+    const uploadZone = document.getElementById('uploadZone');
+    if (!uploadZone) return;
+    
+    let clickTimeout = null;
+    
+    uploadZone.addEventListener('click', function(e) {
+        if (clickTimeout) clearTimeout(clickTimeout);
+        
+        if (e.target !== configFileInput && !e.target.closest('input[type="file"]') && !isFileDialogOpen) {
+            clickTimeout = setTimeout(() => {
+                isFileDialogOpen = true;
+                configFileInput.click();
+                clickTimeout = null;
+            }, 100);
+        }
+    });
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadZone.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadZone.addEventListener(eventName, () => uploadZone.classList.add('dragover'), false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadZone.addEventListener(eventName, () => uploadZone.classList.remove('dragover'), false);
+    });
+    
+    uploadZone.addEventListener('drop', function(e) {
+        const files = e.dataTransfer.files;
+        
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.type === 'application/json' || file.name.endsWith('.json')) {
+                configFileInput.files = files;
+                configFileInput.dispatchEvent(new Event('change'));
+            } else {
+                showToast('Por favor, selecione apenas arquivos JSON.', 'warning', 4000);
+            }
+        }
+    }, false);
+}
+
+// Inicializa cartões de banco
+function initializeBankCards() {
+    const bankCards = document.querySelectorAll('.modern-bank-card');
+    
+    bankCards.forEach(card => {
+        const bank = card.dataset.bank;
+        const checkbox = document.getElementById(`id_usar_${bank}`);
+        
+        if (checkbox && checkbox.checked) {
+            updateBankCardVisual(bank, true);
+        }
+        
+        // Click direito para desmarcar
+        card.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            if (checkbox && checkbox.checked) {
+                checkbox.checked = false;
+                updateBankCardVisual(bank, false);
+                updateBanksSummary();
+            }
+        });
+    });
+    
+    initializeFormValidation();
+}
+
+// Inicializa validação do formulário
+function initializeFormValidation() {
+    const form = document.getElementById('extratoForm');
+    if (!form) return;
+    
+    form.addEventListener('submit', function(e) {
+        // Inicializa flag de validação
+        window.formValidationPassed = false;
+        
+        const arquivoRadio = document.getElementById('arquivo');
+        const configFileInput = document.querySelector('input[name="arquivo_config"]');
+        
+        if (arquivoRadio && arquivoRadio.checked) {
+            if (!configFileInput || configFileInput.files.length === 0) {
+                e.preventDefault();
+                window.formValidationPassed = false; // Reset flag
+                showToast('Por favor, selecione um arquivo de configuração JSON.', 'warning', 4000);
+                return false;
+            }
+            return true;
+        }
+        
+        // Validação dados pessoais
+        const nomeInput = document.querySelector('input[name="nome_usuario"]');
+        const cpfInput = document.querySelector('input[name="cpf_usuario"]');
+        
+        if (!nomeInput || !nomeInput.value.trim()) {
+            e.preventDefault();
+            window.formValidationPassed = false; // Reset flag
+            showToast('Por favor, preencha o nome do usuário.', 'warning', 4000);
+            clearSelectedBanks();
+            return false;
+        }
+        
+        if (!cpfInput || !cpfInput.value.trim()) {
+            e.preventDefault();
+            window.formValidationPassed = false; // Reset flag
+            showToast('Por favor, preencha o CPF do usuário.', 'warning', 4000);
+            clearSelectedBanks();
+            return false;
+        }
+        
+        // Validação modo manual
+        const bancos = ['c6', 'bradesco', 'bb', 'bb_cartao', 'itau'];
+        const bankNames = {
+            'c6': 'C6 Bank',
+            'bradesco': 'Bradesco',
+            'bb': 'Banco do Brasil',
+            'bb_cartao': 'BB Cartão',
+            'itau': 'Itaú'
+        };
+        
+        let bancosComProblema = [];
+        
+        bancos.forEach(bank => {
+            const checkbox = document.getElementById(`id_usar_${bank}`);
+            if (checkbox && checkbox.checked) {
+                let hasFiles = false;
+                
+                if (bank === 'c6' || bank === 'bradesco') {
+                    const fileInput = document.querySelector(`input[name="arquivo_${bank}"]`);
+                    if (fileInput && fileInput.files.length > 0) {
+                        hasFiles = true;
+                    }
+                } else {
+                    const fileInputs = document.querySelectorAll(`input[name^="arquivos_${bank}_"]`);
+                    for (let input of fileInputs) {
+                        if (input.files.length > 0) {
+                            hasFiles = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!hasFiles) {
+                    bancosComProblema.push(bankNames[bank]);
+                }
+            }
+        });
+        
+        if (bancosComProblema.length > 0) {
+            e.preventDefault();
+            window.formValidationPassed = false; // Reset flag
+            showToast(`Os seguintes bancos estão selecionados mas não possuem arquivos: ${bancosComProblema.join(', ')}. Configure-os ou desmarque-os.`, 'error', 6000);
+            clearSelectedBanks();
+            return false;
+        }
+        
+        // Se chegou até aqui, validação passou
+        window.formValidationPassed = true;
+    });
+}
+
+// Função para desmarcar todos os bancos selecionados
+function clearSelectedBanks() {
+    const bancos = ['c6', 'bradesco', 'bb', 'bb_cartao', 'itau'];
+    
+    bancos.forEach(banco => {
+        const checkbox = document.getElementById(`id_usar_${banco}`);
+        if (checkbox && checkbox.checked) {
+            checkbox.checked = false;
+            updateBankCardVisual(banco, false);
+        }
+    });
+    
+    updateBanksSummary();
+    showToast('Bancos desmarcados. Preencha os dados pessoais primeiro.', 'info', 3000);
+}
+
+// ===== FUNÇÕES DE CONFIGURAÇÃO DE BANCOS =====
+function configureBank(bank) {
+    if (!validateBankFiles(bank)) return;
+    
+    // Marcar checkbox
+    const checkbox = document.getElementById(`id_usar_${bank}`);
+    if (checkbox) {
+        checkbox.checked = true;
+    }
+    
+    // Atualizar visual
+    updateBankCardVisual(bank, true);
+    updateBanksSummary();
+    showBankConfiguredMessage(bank);
+}
+
+function validateBankFiles(bank) {
+    let hasFiles = false;
+    
+    if (bank === 'c6' || bank === 'bradesco') {
+        const fileInput = document.querySelector(`#modal${capitalizeFirst(bank)} input[type="file"]`);
+        if (fileInput && fileInput.files.length > 0) {
+            hasFiles = true;
+        }
+    } else {
+        const container = document.getElementById(`modal_files_${bank}`);
+        if (container) {
+            const fileInputs = container.querySelectorAll('input[type="file"]');
+            for (let input of fileInputs) {
+                if (input.files.length > 0) {
+                    hasFiles = true;
+                    break;
+                }
+            }
+        }
+    }
+    
+    if (!hasFiles) {
+        const bankNames = {
+            'c6': 'C6 Bank',
+            'bradesco': 'Bradesco',
+            'bb': 'Banco do Brasil',
+            'bb_cartao': 'BB Cartão',
+            'itau': 'Itaú'
+        };
+        
+        showToast(`Por favor, selecione pelo menos um arquivo para ${bankNames[bank]}.`, 'warning', 4000);
+        return false;
+    }
+    
+    return true;
+}
+
+// ===== FUNÇÕES DE INTERFACE =====
+function updateBankCardVisual(bank, isConfigured) {
+    const card = document.querySelector(`.modern-bank-card[data-bank="${bank}"]`);
+    const status = document.getElementById(`status-${bank}`);
+    
+    if (card && status) {
+        if (isConfigured) {
+            card.classList.add('configured');
+            status.innerHTML = '<i class="fas fa-check-circle"></i>';
+        } else {
+            card.classList.remove('configured');
+            status.innerHTML = '<i class="fas fa-plus-circle"></i>';
+        }
+    }
+}
+
+function updateBanksSummary() {
+    const selectedBanks = [];
+    const bancos = ['c6', 'bradesco', 'bb', 'bb_cartao', 'itau'];
+    const bankNames = {
+        'c6': 'C6 Bank',
+        'bradesco': 'Bradesco',
+        'bb': 'Banco do Brasil',
+        'bb_cartao': 'BB Cartão',
+        'itau': 'Itaú'
+    };
+    
+    bancos.forEach(banco => {
+        const checkbox = document.getElementById(`id_usar_${banco}`);
+        if (checkbox && checkbox.checked) {
+            selectedBanks.push(bankNames[banco]);
+        }
+    });
+    
+    const summarySection = document.getElementById('selected-banks-summary');
+    const summaryList = document.getElementById('summary-list');
+    
+    if (selectedBanks.length > 0) {
+        summaryList.innerHTML = selectedBanks.map(name => `<span class="badge bg-primary me-2">${name}</span>`).join('');
+        summarySection.style.display = 'block';
+    } else {
+        summarySection.style.display = 'none';
+    }
+}
+
+// ===== FUNÇÕES DE GERENCIAMENTO DE ARQUIVOS =====
+function addFileInputModal(banco) {
+    if (banco === 'c6' || banco === 'bradesco') return;
+    
+    const container = document.getElementById(`modal_files_${banco}`);
+    if (!container) return;
+    
+    const fileCount = container.children.length;
+    const newIndex = fileCount;
+    
+    const acceptFormats = {
+        'bb': '.csv',
+        'bb_cartao': '.pdf',
+        'itau': '.xls,.xlsx'
+    };
+    
+    const accept = acceptFormats[banco] || '.csv,.xls,.xlsx';
+    
+    const fileGroup = document.createElement('div');
+    fileGroup.className = 'file-input-group-modal';
+    fileGroup.innerHTML = `
+        <div class="d-flex align-items-start gap-2">
+            <div class="flex-grow-1">
+                <label class="form-label fw-semibold">Arquivo ${newIndex + 1}</label>
+                <input type="file" name="arquivos_${banco}_${newIndex}" class="form-control" accept="${accept}">
+            </div>
+            <button type="button" class="remove-file-btn-modern" onclick="removeFileInputModal(this)">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    container.appendChild(fileGroup);
+    updateRemoveButtons(banco);
+}
+
+function removeFileInputModal(button) {
+    const fileGroup = button.closest('.file-input-group-modal');
+    const container = button.closest('[id^="modal_files_"]');
+    
+    if (fileGroup) {
+        fileGroup.remove();
+        
+        if (container) {
+            const banco = container.id.replace('modal_files_', '');
+            updateFileLabels(banco);
+            updateRemoveButtons(banco);
+        }
+    }
+}
+
+function updateFileLabels(banco) {
+    const container = document.getElementById(`modal_files_${banco}`);
+    if (container) {
+        const fileGroups = container.querySelectorAll('.file-input-group-modal');
+        fileGroups.forEach((group, index) => {
+            const label = group.querySelector('label');
+            const input = group.querySelector('input');
+            if (label) label.textContent = `Arquivo ${index + 1}`;
+            if (input) input.name = `arquivos_${banco}_${index}`;
+        });
+    }
+}
+
+function updateRemoveButtons(banco) {
+    const container = document.getElementById(`modal_files_${banco}`);
+    if (container) {
+        const removeButtons = container.querySelectorAll('.remove-file-btn-modern');
+        const fileCount = container.querySelectorAll('.file-input-group-modal').length;
+        
+        removeButtons.forEach(button => {
+            button.style.display = fileCount > 1 ? 'flex' : 'none';
+        });
+    }
+}
+
+// ===== FUNÇÕES UTILITÁRIAS =====
+function capitalizeFirst(str) {
+    const modalMapping = {
+        'c6': 'C6',
+        'bradesco': 'Bradesco', 
+        'bb': 'BB',
+        'bb_cartao': 'BBCartao',
+        'itau': 'Itau'
+    };
+    
+    return modalMapping[str] || str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function showBankConfiguredMessage(bank) {
+    const bankNames = {
+        'c6': 'C6 Bank',
+        'bradesco': 'Bradesco',
+        'bb': 'Banco do Brasil',
+        'bb_cartao': 'BB Cartão',
+        'itau': 'Itaú'
+    };
+    
+    showToast(`${bankNames[bank]} configurado com sucesso!`, 'success', 3000);
+}
+</script>
+{% endblock %}

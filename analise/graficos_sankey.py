@@ -377,7 +377,6 @@ def gerar_sankey_por_banco(df_banco, nome_banco, output_dir):
             values.append(abs(row['Valor']))
     
     if not sources:
-        print(f"⚠️ Nenhum fluxo válido para '{nome_banco}'")
         return
     
     # Calcular totais
@@ -400,8 +399,6 @@ def gerar_sankey_por_banco(df_banco, nome_banco, output_dir):
     output_file = Path(output_dir) / f"analise_gastos_sankey_{nome_banco.replace(' ', '_').lower()}.html"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     fig.write_html(output_file, include_plotlyjs='cdn')
-    
-    print(f"✅ {nome_banco}: R$ {saldo:,.2f} ({output_file.name})")
 
 def gerar_sankey_geral(df_final, output_dir):
     """Gera gráfico Sankey geral consolidado."""
@@ -471,7 +468,6 @@ def gerar_sankey_geral(df_final, output_dir):
         values.append(abs(row['Valor']))
     
     if not sources:
-        print("⚠️ Nenhum fluxo válido para o gráfico geral")
         return
     
     # Calcular totais
@@ -494,8 +490,6 @@ def gerar_sankey_geral(df_final, output_dir):
     output_file = Path(output_dir) / "analise_gastos_sankey_geral.html"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     fig.write_html(output_file, include_plotlyjs='cdn')
-    
-    print(f"✅ Geral: R$ {saldo:,.2f} ({output_file.name})")
 
 def analisar_gastos_sankey_proventos_detalhados(nome_arquivo_excel="controle_gastos.xlsx", output_dir="output"):
     """
@@ -522,7 +516,6 @@ def analisar_gastos_sankey_proventos_detalhados(nome_arquivo_excel="controle_gas
         df_processado = df[~mask_transferencia].copy()
         
         if df_processado.empty:
-            print("❌ Nenhum dado válido após filtrar transferências próprias")
             Path(output_dir).mkdir(parents=True, exist_ok=True)
             with open(Path(output_dir) / "nenhum_dado_valido.html", "w") as f:
                 f.write("<html><body><h1>Nenhum dado válido encontrado.</h1></body></html>")
@@ -555,16 +548,12 @@ def analisar_gastos_sankey_proventos_detalhados(nome_arquivo_excel="controle_gas
         
         # Validar dados finais
         if df_processado.empty:
-            print("❌ Nenhum dado válido após categorização")
             return
         
         # Obter bancos únicos
         bancos_unicos = df_processado['Banco'].unique()
         if len(bancos_unicos) == 0:
-            print("❌ Nenhum banco encontrado")
             return
-        
-        print(f"📊 Processando {len(df_processado)} transações de {len(bancos_unicos)} banco(s)")
         
         # Gerar gráficos por banco
         for banco in bancos_unicos:
@@ -575,17 +564,12 @@ def analisar_gastos_sankey_proventos_detalhados(nome_arquivo_excel="controle_gas
         # Gerar gráfico geral
         gerar_sankey_geral(df_processado, output_dir)
         
-        print(f"✅ Análise concluída! Arquivos salvos em '{output_dir}'")
-        
     except FileNotFoundError:
-        print(f"❌ Arquivo '{nome_arquivo_excel}' não encontrado")
-        sys.exit(1)
+        pass  # Arquivo não encontrado
     except KeyError as e:
-        print(f"❌ Coluna '{e}' não encontrada no Excel")
-        sys.exit(1)
+        pass  # Coluna não encontrada no Excel  
     except Exception as e:
-        print(f"❌ Erro inesperado: {e}")
-        sys.exit(1)
+        pass  # Erro inesperado
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Gerador de Gráficos Sankey para Análise de Gastos')
