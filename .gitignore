@@ -15,9 +15,6 @@ web_interface/db.sqlite3
 staticfiles/
 .env
 
-# Django migrations (should be generated on each setup)
-web_interface/extratos_app/migrations/0*.py
-
 # Python files
 __pycache__/
 *.py[cod]
