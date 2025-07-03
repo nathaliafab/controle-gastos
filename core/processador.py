@@ -124,7 +124,7 @@ def consolidar_dados(dfs):
     transacoes_removidas = transacoes_antes - len(df_consolidado)
     
     if transacoes_removidas > 0:
-        print(f"   🗑️  Removidas {transacoes_removidas} transação(ões) com valor R$ 0,00")
+        print(f"   🗑️  Removidas transação(ões) com valor zerado")
     
     df_consolidado = df_consolidado.sort_values('Data').reset_index(drop=True)
     
@@ -134,23 +134,13 @@ def consolidar_dados(dfs):
     return df_consolidado
 
 
-def mostrar_saldos_iniciais(bancos_para_processar, config):
-    saldos_iniciais = config['saldos_iniciais']
-    if 'bb' in bancos_para_processar:
-        print(f"      • BB: R$ {saldos_iniciais['bb']:.2f}")
-    if 'bradesco' in bancos_para_processar:
-        print(f"      • Bradesco: R$ {saldos_iniciais['bradesco']:.2f}")
-    if 'c6' in bancos_para_processar:
-        print(f"      • C6 Bank: R$ {saldos_iniciais['c6_bank']:.2f}")
-    if 'itau' in bancos_para_processar:
-        print(f"      • Itaú: R$ {saldos_iniciais['itau']:.2f}")
 
 
 def exportar_excel(df_consolidado, arquivo_output):
     print(f"📄 Gerando planilha Excel...")
     try:
         df_consolidado.to_excel(arquivo_output, index=False)
-        print(f"   ✅ Arquivo '{arquivo_output}' criado com sucesso!")
+        print(f"   ✅ Arquivo criado com sucesso!")
         return True
     except Exception as e:
         print(f"   ❌ Erro ao salvar Excel: {e}")
@@ -161,8 +151,6 @@ def processar_extratos(args, config):
     bancos_para_processar = determinar_bancos_processar(args)
     
     print("🏦 PROCESSADOR DE EXTRATOS BANCÁRIOS")
-    print("="*40)
-    print(f"👤 Usuário: {config['usuario']['nome']} (CPF: {config['usuario']['cpf']})")
     print("="*40)
     
     # Verificar e filtrar bancos com arquivos válidos
@@ -195,8 +183,6 @@ def processar_extratos(args, config):
     
     print(f"🧮 Calculando saldos...")
     df_consolidado = calcular_saldos(df_consolidado, config)
-    mostrar_saldos_iniciais(bancos_validos, config)
-    
     detectar_transferencias_proprias(df_consolidado, config)
     
     df_consolidado = df_consolidado[COLUNAS_PADRONIZADAS]

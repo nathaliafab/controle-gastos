@@ -373,32 +373,6 @@ def gerar_relatorio(df: pd.DataFrame):
     periodo_fim = df['Data'].max().strftime('%d/%m/%Y')
     
     print(f"📅 Período: {periodo_inicio} a {periodo_fim}")
-    print(f"📈 Total de transações: {total_transacoes}")
+    print(f"📈 Relatório processado")
     
-    print(f"\n💳 RESUMO POR BANCO:")
-    banco_resumo = df.groupby('Banco').agg({
-        'Valor': ['count', 'sum']
-    }).round(2)
-    banco_resumo.columns = ['Qtd', 'Total']
-    
-    for banco, row in banco_resumo.iterrows():
-        qtd = int(row['Qtd'])
-        total = row['Total']
-        sinal = "+" if total >= 0 else ""
-        print(f"   {banco:<20}: {qtd:>3} transações | {sinal}R$ {total:>10.2f}")
-    
-    print(f"\n🏷️  RESUMO POR CATEGORIA:")
-    categoria_resumo = df.groupby('Categoria_Auto').agg({
-        'Valor': ['count', 'sum']
-    }).round(2)
-    categoria_resumo.columns = ['Qtd', 'Total']
-    categoria_resumo = categoria_resumo.sort_values('Total', ascending=False)
-    
-    for categoria, row in categoria_resumo.iterrows():
-        qtd = int(row['Qtd'])
-        total = row['Total']
-        sinal = "+" if total >= 0 else ""
-        print(f"   {categoria:<20}: {qtd:>3} transações | {sinal}R$ {total:>10.2f}")
-
-
 

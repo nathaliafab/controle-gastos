@@ -61,7 +61,7 @@ def processar(config: dict) -> pd.DataFrame:
             ), axis=1
         )
         
-        print(f"   ✅ {len(resultado)} transações processadas")
+        print(f"   ✅ Transações processadas")
         return resultado
         
     except Exception as e:

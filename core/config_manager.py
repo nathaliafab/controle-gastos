@@ -11,7 +11,7 @@ def carregar_configuracao(arquivo_config='config.json'):
     config_path = Path(arquivo_config)
     
     if not config_path.exists():
-        print(f"❌ Arquivo de configuração '{arquivo_config}' não encontrado!")
+        print(f"❌ Arquivo de configuração não encontrado!")
         print("💡 Crie o arquivo config.json com suas configurações")
         print("📝 Consulte o config-exemplo.json para referência")
         return None
@@ -21,7 +21,7 @@ def carregar_configuracao(arquivo_config='config.json'):
             config = json.load(f)
         return config
     except Exception as e:
-        print(f"❌ Erro ao carregar '{arquivo_config}': {e}")
+        print(f"❌ Erro ao carregar arquivo de configuração: {e}")
         print("💡 Verifique se o arquivo está em formato JSON válido")
         return None
 

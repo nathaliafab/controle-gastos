@@ -40,7 +40,7 @@ def processar(config: dict) -> pd.DataFrame:
         
         if dataframes:
             resultado_final = pd.concat(dataframes, ignore_index=True)
-            print(f"   ✅ {len(resultado_final)} transações processadas")
+            print(f"   ✅ Transações processadas")
             return resultado_final
         else:
             return pd.DataFrame()
@@ -107,7 +107,7 @@ def _processar_conta_corrente(arquivo_path: str, config: dict) -> pd.DataFrame:
             ), axis=1
         )
         
-        print(f"   ✅ {len(resultado)} transações processadas")
+        print(f"   ✅ Transações processadas")
         return resultado
         
     except Exception as e:
@@ -240,7 +240,7 @@ def _processar_cartao_credito(arquivo_path: str, config: dict) -> pd.DataFrame:
         
         resultado['Categoria_Auto'] = resultado.apply(categorizar_itau, axis=1)
         
-        print(f"   ✅ {len(resultado)} transações processadas")
+        print(f"   ✅ Transações processadas")
         return resultado
         
     except Exception as e:

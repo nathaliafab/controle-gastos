@@ -69,7 +69,7 @@ def processar(config: dict) -> pd.DataFrame:
                 config['categorias']
             ), axis=1
         )
-        print(f"   ✅ {len(resultado)} transações processadas de {len(arquivos_ordenados)} arquivo(s)")
+        print(f"   ✅ Transações processadas de arquivo(s)")
         return resultado
     except Exception as e:
         print(f"   ❌ Erro: {e}")

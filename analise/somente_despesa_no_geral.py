@@ -209,10 +209,7 @@ def gerar_sankey_por_banco(df_banco, nome_banco, output_dir):
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     fig.write_html(output_file_html, include_plotlyjs='cdn')
 
-    print(f"Gráfico Sankey para '{nome_banco}' gerado com sucesso em '{output_file_html}'")
-    print(f"💵 Total de Entradas ({nome_banco}): R$ {total_entradas_banco:,.2f}")
-    print(f"💸 Total de Saídas ({nome_banco}): R$ {abs(total_saidas_banco):,.2f}")
-    print(f"💼 Saldo Final ({nome_banco}): {simbolo_saldo}R$ {saldo_banco:,.2f}")
+    print(f"Gráfico Sankey para '{nome_banco}' gerado com sucesso")
 
 
 def gerar_sankey_geral(df_final, output_dir):
@@ -382,10 +379,7 @@ def gerar_sankey_geral(df_final, output_dir):
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     fig.write_html(output_file_html, include_plotlyjs='cdn')
 
-    print(f"Gráfico Sankey Geral gerado com sucesso em '{output_file_html}'")
-    print(f"💵 Total de Entradas (Geral): R$ {total_entradas:,.2f}")
-    print(f"💸 Total de Saídas (Geral): R$ {abs(total_saidas):,.2f}")
-    print(f"💼 Saldo Final (Geral): {simbolo_saldo}R$ {saldo:,.2f}")
+    print(f"Gráfico Sankey Geral gerado com sucesso")
 
 
 def analisar_gastos_sankey_proventos_detalhados(nome_arquivo_excel="controle_gastos.xlsx", output_dir="output"):
@@ -482,11 +476,11 @@ def analisar_gastos_sankey_proventos_detalhados(nome_arquivo_excel="controle_gas
         gerar_sankey_geral(df_final, output_dir)
 
         print("\nAnálise Sankey por banco e geral concluída!")
-        print(f"💡 Dica: Verifique a pasta '{output_dir}' para os arquivos HTML gerados.")
+        print(f"💡 Dica: Verifique a pasta de output para os arquivos HTML gerados.")
 
 
     except FileNotFoundError:
-        print(f"Erro: O arquivo '{nome_arquivo_excel}' não foi encontrado. Certifique-se de que ele está no mesmo diretório do script.")
+        print(f"Erro: Arquivo Excel não foi encontrado. Certifique-se de que ele está no mesmo diretório do script.")
         sys.exit(1)
     except KeyError as e:
         print(f"Erro: Coluna '{e}' não encontrada no arquivo Excel. Verifique a estrutura das colunas e se os nomes estão corretos.")

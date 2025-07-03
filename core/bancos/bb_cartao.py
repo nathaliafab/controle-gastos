@@ -26,7 +26,7 @@ def processar(config: dict) -> pd.DataFrame:
         from datetime import datetime
         for pdf_path in arquivos_bb_cartao:
             if not Path(pdf_path).exists():
-                print(f"   ⚠️  Arquivo {pdf_path} não encontrado")
+                print(f"   ⚠️  Arquivo não encontrado")
                 continue
             transacoes = []
             ano_fatura = str(datetime.now().year)
@@ -53,11 +53,11 @@ def processar(config: dict) -> pd.DataFrame:
                         ano_fatura = _extrair_ano_fatura(all_text)
                         transacoes = _extrair_transacoes(all_text, ano_fatura)
                 except Exception as e_sem_senha:
-                    print(f"   ❌ Erro ao processar {Path(pdf_path).name}: {e_sem_senha}")
+                    print(f"   ❌ Erro ao processar arquivo: {e_sem_senha}")
                     continue
             if transacoes:
                 todas_transacoes.extend(transacoes)
-                print(f"   ✅ {len(transacoes)} transações encontradas em {Path(pdf_path).name}")
+                print(f"   ✅ Transações encontradas no arquivo")
         if not todas_transacoes:
             print("   ⚠️  Nenhuma transação encontrada nos PDFs")
             return pd.DataFrame()
@@ -74,7 +74,7 @@ def processar(config: dict) -> pd.DataFrame:
         }
         resultado = criar_dataframe_padronizado(data_dict)
         resultado['Categoria_Auto'] = 'Cartão Crédito'
-        print(f"   ✅ {len(resultado)} transações processadas de {len(arquivos_bb_cartao)} arquivo(s)")
+        print(f"   ✅ Transações processadas de arquivo(s)")
         return resultado
     except Exception as e:
         print(f"   ❌ Erro ao processar PDF: {e}")
