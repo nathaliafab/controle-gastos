@@ -3,12 +3,20 @@ Django==5.0.6
 whitenoise==6.7.0
 python-decouple==3.8
 gunicorn==22.0.0
+dj-database-url==2.1.0
+
+# ===== DEPENDÊNCIAS DE SEGURANÇA =====
+bleach==6.0.0
 
 # ===== DEPENDÊNCIAS DO PROCESSADOR ORIGINAL =====
 pandas==2.2.2
 openpyxl==3.1.5
 xlrd==2.0.1
 PyPDF2==3.0.1
+pdfplumber
 
 # ===== DEPENDÊNCIAS PARA GRÁFICOS =====
 plotly>=5.0.0
+
+# ===== DEPENDÊNCIAS DE PRODUÇÃO =====
+psycopg2-binary==2.9.9

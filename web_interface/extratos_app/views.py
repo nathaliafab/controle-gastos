@@ -46,9 +46,12 @@ except ImportError:
 
 def _log_error(error_msg, exception=None):
     """Helper para log de erros"""
+    import logging
+    logger = logging.getLogger(__name__)
     if exception:
-        traceback.print_exc()
-    print(f"ERRO: {error_msg}")
+        logger.error(f"ERRO: {error_msg}", exc_info=True)
+    else:
+        logger.error(f"ERRO: {error_msg}")
 
 
 def _extract_body_content(html_content):
@@ -123,6 +126,10 @@ def processar_extratos_view(request):
         
         try:
             processamento = form.save()
+            
+            # Se há arquivo de configuração, atualizar campos de bancos baseado no JSON
+            if processamento.arquivo_config:
+                _atualizar_bancos_do_config(processamento)
             
             # Salvar múltiplos arquivos apenas se não há config file
             if not processamento.arquivo_config:
@@ -207,18 +214,45 @@ def validar_multiplos_arquivos(request, cleaned_data):
         bb_files = [k for k in request.FILES.keys() if k.startswith('arquivos_bb_')]
         if not bb_files:
             erros.append("Banco do Brasil foi selecionado mas nenhum arquivo foi enviado.")
+        else:
+            # Validar tipos de arquivo BB
+            for file_key in bb_files:
+                arquivo = request.FILES[file_key]
+                ext = os.path.splitext(arquivo.name)[1].lower()
+                if ext not in ['.csv']:
+                    erros.append(f"Arquivo inválido para o Banco do Brasil ({arquivo.name}). Apenas arquivos CSV são aceitos.")
+                if arquivo.size > 10 * 1024 * 1024:  # 10MB
+                    erros.append(f"Arquivo muito grande ({arquivo.name}). Tamanho máximo: 10MB.")
     
     # Verificar BB Cartão
     if cleaned_data.get('usar_bb_cartao'):
         bb_cartao_files = [k for k in request.FILES.keys() if k.startswith('arquivos_bb_cartao_')]
         if not bb_cartao_files:
             erros.append("BB Cartão foi selecionado mas nenhum arquivo foi enviado.")
+        else:
+            # Validar tipos de arquivo BB Cartão
+            for file_key in bb_cartao_files:
+                arquivo = request.FILES[file_key]
+                ext = os.path.splitext(arquivo.name)[1].lower()
+                if ext not in ['.pdf']:
+                    erros.append(f"Arquivo inválido para o BB Cartão ({arquivo.name}). Apenas arquivos PDF são aceitos.")
+                if arquivo.size > 10 * 1024 * 1024:  # 10MB
+                    erros.append(f"Arquivo muito grande ({arquivo.name}). Tamanho máximo: 10MB.")
     
     # Verificar Itaú
     if cleaned_data.get('usar_itau'):
         itau_files = [k for k in request.FILES.keys() if k.startswith('arquivos_itau_')]
         if not itau_files:
             erros.append("Itaú foi selecionado mas nenhum arquivo foi enviado.")
+        else:
+            # Validar tipos de arquivo Itaú
+            for file_key in itau_files:
+                arquivo = request.FILES[file_key]
+                ext = os.path.splitext(arquivo.name)[1].lower()
+                if ext not in ['.xls', '.xlsx']:
+                    erros.append(f"Arquivo inválido para o Itaú ({arquivo.name}). Apenas arquivos XLS e XLSX são aceitos.")
+                if arquivo.size > 10 * 1024 * 1024:  # 10MB
+                    erros.append(f"Arquivo muito grande ({arquivo.name}). Tamanho máximo: 10MB.")
     
     return erros
 
@@ -615,3 +649,56 @@ def limpar_arquivos_upload(processamento):
     except Exception as e:
         # Se houver erro na limpeza, apenas registrar mas não falhar o processamento
         _log_error("Erro ao limpar arquivos de upload", e)
+
+
+def _atualizar_bancos_do_config(processamento):
+    """Atualizar campos de bancos baseado no arquivo de configuração"""
+    if not processamento.arquivo_config:
+        return
+        
+    try:
+        with open(processamento.arquivo_config.path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        
+        # Mapear bancos do JSON para campos do modelo
+        banco_mapping = {
+            'c6_bank': 'usar_c6',
+            'bradesco': 'usar_bradesco', 
+            'bb': 'usar_bb',
+            'bb_cartao': 'usar_bb_cartao',
+            'itau': 'usar_itau'
+        }
+        
+        # Obter lista de bancos configurados no JSON
+        arquivos = config.get('arquivos', {})
+        
+        # Atualizar campos do modelo baseado no que está configurado no JSON
+        for banco_json, campo_modelo in banco_mapping.items():
+            if banco_json in arquivos:
+                setattr(processamento, campo_modelo, True)
+        
+        # Atualizar dados do usuário se não estão definidos
+        usuario = config.get('usuario', {})
+        if usuario.get('nome') and not processamento.nome_usuario:
+            processamento.nome_usuario = usuario['nome']
+        if usuario.get('cpf') and not processamento.cpf_usuario:
+            processamento.cpf_usuario = usuario['cpf']
+            
+        # Atualizar saldos iniciais
+        saldos = config.get('saldos_iniciais', {})
+        saldo_mapping = {
+            'c6_bank': 'saldo_inicial_c6',
+            'bradesco': 'saldo_inicial_bradesco',
+            'bb': 'saldo_inicial_bb', 
+            'itau': 'saldo_inicial_itau'
+        }
+        
+        for banco_json, campo_saldo in saldo_mapping.items():
+            if banco_json in saldos:
+                setattr(processamento, campo_saldo, saldos[banco_json])
+        
+        # Salvar as alterações
+        processamento.save()
+        
+    except Exception as e:
+        _log_error("Erro ao atualizar bancos do arquivo de configuração", e)

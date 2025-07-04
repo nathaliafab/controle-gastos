@@ -6,10 +6,13 @@ import pandas as pd
 import re
 from pathlib import Path
 from utils import categorizar_transacao_auto, criar_dataframe_padronizado, extrair_agencia_conta
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def processar(config: dict) -> pd.DataFrame:
-    print("📊 Processando Banco do Brasil...")
+    logger.info("📊 Processando Banco do Brasil...")
     try:
         arquivos_bb = config['arquivos']['bb']
         if isinstance(arquivos_bb, str):
@@ -44,7 +47,7 @@ def processar(config: dict) -> pd.DataFrame:
                 )
                 dfs.append(df)
         if not dfs:
-            print("   ⚠️  Nenhum arquivo válido encontrado")
+            logger.warning("Nenhum arquivo válido encontrado")
             return pd.DataFrame()
         df_final = pd.concat(dfs, ignore_index=True)
         # Remove transações de pagamento de cartão de crédito para evitar duplicidade
@@ -69,10 +72,10 @@ def processar(config: dict) -> pd.DataFrame:
                 config['categorias']
             ), axis=1
         )
-        print(f"   ✅ Transações processadas de arquivo(s)")
+        logger.info(f"✅ Transações processadas de arquivo(s)")
         return resultado
     except Exception as e:
-        print(f"   ❌ Erro: {e}")
+        logger.error(f"Erro: {e}")
         return pd.DataFrame()
 
 

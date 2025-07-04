@@ -14,6 +14,9 @@ from bancos.novo_banco import processar
 
 import pandas as pd
 from utils import categorizar_transacao_auto, criar_dataframe_padronizado
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def processar(config: dict) -> pd.DataFrame:
@@ -26,7 +29,7 @@ def processar(config: dict) -> pd.DataFrame:
     Returns:
         DataFrame com as transações processadas no formato padronizado
     """
-    print("📊 Processando [NOME DO BANCO]...")
+    logger.info("📊 Processando [NOME DO BANCO]...")
     
     try:
         # ETAPA 1: Ler arquivo do banco
@@ -42,7 +45,7 @@ def processar(config: dict) -> pd.DataFrame:
         df = df.dropna(how='all', axis=1).dropna(how='all', axis=0)
         
         if df.empty:
-            print("   ⚠️  Arquivo vazio")
+            logger.warning("Arquivo vazio")
             return pd.DataFrame()
         
         # ETAPA 3: Extrair saldo anterior (se aplicável)
@@ -80,11 +83,11 @@ def processar(config: dict) -> pd.DataFrame:
             ), axis=1
         )
         
-        print(f"   ✅ Transações processadas")
+        logger.info(f"✅ Transações processadas")
         return resultado
         
     except Exception as e:
-        print(f"   ❌ Erro: {e}")
+        logger.error(f"Erro: {e}")
         return pd.DataFrame()
 
 
@@ -102,11 +105,11 @@ def _extrair_saldo_anterior(df: pd.DataFrame, config: dict) -> None:
         # saldo_anterior_linhas = df[df['Coluna'].str.contains('SALDO ANTERIOR', na=False)]
         # if not saldo_anterior_linhas.empty:
         #     saldo_anterior = float(saldo_anterior_linhas.iloc[0]['Valor'])
-        #     print(f"   💰 Saldo anterior extraído: R$ {saldo_anterior:.2f}")
+        #     logger.info(f"💰 Saldo anterior extraído: R$ {saldo_anterior:.2f}")
         #     config['saldos_iniciais']['nome_do_banco'] = saldo_anterior
         pass
     except Exception as e:
-        print(f"   ⚠️  Erro ao extrair saldo anterior: {e}")
+        logger.warning(f"Erro ao extrair saldo anterior: {e}")
 
 
 # Funções auxiliares específicas do banco (se necessário)

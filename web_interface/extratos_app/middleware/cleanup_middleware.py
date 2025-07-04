@@ -1,7 +1,10 @@
 import os
 import time
+import logging
 from django.utils.deprecation import MiddlewareMixin
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 class PeriodicFileCleanupMiddleware(MiddlewareMixin):
     CLEANUP_INTERVAL_SECONDS = 120*5  # 10 minutos
@@ -41,4 +44,4 @@ class PeriodicFileCleanupMiddleware(MiddlewareMixin):
                 try:
                     file.unlink()
                 except Exception as e:
-                    print(f"Erro ao apagar {file.name}: {e}")
+                    logger.error(f"Erro ao apagar {file.name}: {e}")

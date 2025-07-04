@@ -7,10 +7,13 @@ import re
 from pathlib import Path
 from datetime import datetime
 from utils import criar_dataframe_padronizado
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def processar(config: dict) -> pd.DataFrame:
-    print("📊 Processando fatura do cartão BB...")
+    logger.info("📊 Processando fatura do cartão BB...")
     try:
         arquivos_bb_cartao = config['arquivos']['bb_cartao']
         if isinstance(arquivos_bb_cartao, str):
@@ -26,7 +29,7 @@ def processar(config: dict) -> pd.DataFrame:
         from datetime import datetime
         for pdf_path in arquivos_bb_cartao:
             if not Path(pdf_path).exists():
-                print(f"   ⚠️  Arquivo não encontrado")
+                logger.warning(f"Arquivo não encontrado")
                 continue
             transacoes = []
             ano_fatura = str(datetime.now().year)
@@ -53,13 +56,13 @@ def processar(config: dict) -> pd.DataFrame:
                         ano_fatura = _extrair_ano_fatura(all_text)
                         transacoes = _extrair_transacoes(all_text, ano_fatura)
                 except Exception as e_sem_senha:
-                    print(f"   ❌ Erro ao processar arquivo: {e_sem_senha}")
+                    logger.error(f"Erro ao processar arquivo: {e_sem_senha}")
                     continue
             if transacoes:
                 todas_transacoes.extend(transacoes)
-                print(f"   ✅ Transações encontradas no arquivo")
+                logger.info(f"✅ Transações encontradas no arquivo")
         if not todas_transacoes:
-            print("   ⚠️  Nenhuma transação encontrada nos PDFs")
+            logger.warning("Nenhuma transação encontrada nos PDFs")
             return pd.DataFrame()
         data_dict = {
             'Data': [t['Data'] for t in todas_transacoes],
@@ -74,12 +77,12 @@ def processar(config: dict) -> pd.DataFrame:
         }
         resultado = criar_dataframe_padronizado(data_dict)
         resultado['Categoria_Auto'] = 'Cartão Crédito'
-        print(f"   ✅ Transações processadas de arquivo(s)")
+        logger.info(f"✅ Transações processadas de arquivo(s)")
         return resultado
     except Exception as e:
-        print(f"   ❌ Erro ao processar PDF: {e}")
+        logger.error(f"Erro ao processar PDF: {e}")
         import traceback
-        print(f"   📝 Detalhes do erro: {traceback.format_exc()}")
+        logger.debug(f"📝 Detalhes do erro: {traceback.format_exc()}")
         return pd.DataFrame()
 
 

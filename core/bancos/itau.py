@@ -4,12 +4,15 @@ Processador de extratos do Itaú.
 
 import pandas as pd
 from utils import categorizar_transacao_auto, criar_dataframe_padronizado, extrair_agencia_conta
+from logger import get_logger
 import re
+
+logger = get_logger(__name__)
 
 
 def processar(config: dict) -> pd.DataFrame:
     """Processa extrato do Itaú - suporta conta corrente (.xls) e cartão de crédito (.xlsx)"""
-    print("📊 Processando Itaú...")
+    logger.info("📊 Processando Itaú...")
     
     try:
         arquivos_itau = config['arquivos']['itau']
@@ -17,7 +20,7 @@ def processar(config: dict) -> pd.DataFrame:
         # Suportar tanto string (arquivo único) quanto lista (múltiplos arquivos)
         if isinstance(arquivos_itau, str):
             if not arquivos_itau:
-                print("   ⚠️  Caminho do arquivo Itaú não configurado")
+                logger.warning("Caminho do arquivo Itaú não configurado")
                 return pd.DataFrame()
             lista_arquivos = [arquivos_itau]
         else:
@@ -41,13 +44,13 @@ def processar(config: dict) -> pd.DataFrame:
         
         if dataframes:
             resultado_final = pd.concat(dataframes, ignore_index=True)
-            print(f"   ✅ Transações processadas")
+            logger.info(f"✅ Transações processadas")
             return resultado_final
         else:
             return pd.DataFrame()
             
     except Exception as e:
-        print(f"   ❌ Erro: {e}")
+        logger.error(f"Erro: {e}")
         return pd.DataFrame()
 
 
@@ -65,7 +68,7 @@ def _processar_conta_corrente(arquivo_path: str, config: dict) -> pd.DataFrame:
         df = df.dropna(how='all', axis=1).dropna(how='all', axis=0)
         
         if df.empty:
-            print("   ⚠️  Arquivo vazio")
+            logger.warning("Arquivo vazio")
             return pd.DataFrame()
         
         _extrair_saldo_anterior(df, config)
@@ -105,11 +108,11 @@ def _processar_conta_corrente(arquivo_path: str, config: dict) -> pd.DataFrame:
         
         resultado['Categoria_Auto'] = resultado.apply(lambda row: categorizar_itau(row, config), axis=1)
         
-        print(f"   ✅ Transações processadas")
+        logger.info(f"✅ Transações processadas")
         return resultado
         
     except Exception as e:
-        print(f"   ❌ Erro ao processar conta corrente: {e}")
+        logger.error(f"Erro ao processar conta corrente: {e}")
         return pd.DataFrame()
 
 
@@ -118,7 +121,7 @@ def _processar_cartao_credito(arquivo_path: str, config: dict) -> pd.DataFrame:
         df = pd.read_excel(arquivo_path, sheet_name='Lançamentos', header=None)
         
         if df.empty:
-            print("   ⚠️  Arquivo vazio")
+            logger.warning("Arquivo vazio")
             return pd.DataFrame()
         
         # Encontrar todos os cartões e suas seções
@@ -221,13 +224,13 @@ def _processar_cartao_credito(arquivo_path: str, config: dict) -> pd.DataFrame:
         
         resultado['Categoria_Auto'] = resultado.apply(lambda row: categorizar_itau(row, config), axis=1)
         
-        print(f"   ✅ Transações processadas")
+        logger.info(f"✅ Transações processadas")
         return resultado
         
     except Exception as e:
-        print(f"   ❌ Erro ao processar cartão de crédito: {e}")
+        logger.error(f"Erro ao processar cartão de crédito: {e}")
         import traceback
-        traceback.print_exc()
+        logger.debug(traceback.format_exc())
         return pd.DataFrame()
 
 

@@ -7,6 +7,9 @@ from pathlib import Path
 from bancos import PROCESSADORES, MAPEAMENTO_ARQUIVOS, NOMES_BANCOS
 from utils import calcular_saldos, detectar_transferencias_proprias, gerar_relatorio, gerar_nome_arquivo_timestamped
 from config_manager import COLUNAS_PADRONIZADAS
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def verificar_e_filtrar_bancos(bancos_para_processar, config):
@@ -55,7 +58,7 @@ def verificar_e_filtrar_bancos(bancos_para_processar, config):
 def determinar_bancos_processar(args):
     if args.all:
         bancos_para_processar = ['c6', 'bradesco', 'bb', 'bb_cartao', 'itau']
-        print("🎯 Modo: TODOS OS BANCOS")
+        logger.info("Modo: TODOS OS BANCOS")
     else:
         bancos_para_processar = []
         if args.c6:
@@ -70,13 +73,13 @@ def determinar_bancos_processar(args):
             bancos_para_processar.append('itau')
         
         bancos_selecionados = [NOMES_BANCOS[b] for b in bancos_para_processar]
-        print(f"🎯 Modo: BANCOS SELECIONADOS - {', '.join(bancos_selecionados)}")
+        logger.info(f"Modo: BANCOS SELECIONADOS - {', '.join(bancos_selecionados)}")
     
     return bancos_para_processar
 
 
 def processar_bancos(bancos_para_processar, config):
-    print(f"\n🔄 Processando extratos dos bancos selecionados...")
+    logger.info(f"\nProcessando extratos dos bancos selecionados...")
     dfs = []
     
     for banco in bancos_para_processar:
@@ -84,7 +87,7 @@ def processar_bancos(bancos_para_processar, config):
         
         # Verificar se a chave existe na configuração
         if arquivo_key not in config.get('arquivos', {}):
-            print(f"   ⚠️  {banco.upper()}: Configuração não encontrada para '{arquivo_key}' - ignorando")
+            logger.warning(f"{banco.upper()}: Configuração não encontrada para '{arquivo_key}' - ignorando")
             continue
             
         arquivos = config['arquivos'][arquivo_key]
@@ -100,23 +103,23 @@ def processar_bancos(bancos_para_processar, config):
                 df_resultado = PROCESSADORES[banco](config)
                 if not df_resultado.empty:
                     dfs.append(df_resultado)
-                    print(f"   ✅ {banco.upper()}: Processado com sucesso")
+                    logger.info(f"✅ {banco.upper()}: Processado com sucesso")
                 else:
-                    print(f"   ⚠️  {banco.upper()}: Nenhum dado encontrado")
+                    logger.warning(f"{banco.upper()}: Nenhum dado encontrado")
             except Exception as e:
-                print(f"   ❌ {banco.upper()}: Erro ao processar - {str(e)}")
+                logger.error(f"{banco.upper()}: Erro ao processar - {str(e)}")
         else:
-            print(f"   ⚠️  {banco.upper()}: Arquivos não encontrados - ignorando")
+            logger.warning(f"{banco.upper()}: Arquivos não encontrados - ignorando")
     
     return dfs
 
 
 def consolidar_dados(dfs):
     if not dfs:
-        print("❌ Nenhum extrato foi processado com sucesso!")
+        logger.error("Nenhum extrato foi processado com sucesso!")
         return None
     
-    print(f"\n🔗 Consolidando dados...")
+    logger.info(f"\n🔗 Consolidando dados...")
     df_consolidado = pd.concat(dfs, ignore_index=True)
     
     transacoes_antes = len(df_consolidado)
@@ -124,7 +127,7 @@ def consolidar_dados(dfs):
     transacoes_removidas = transacoes_antes - len(df_consolidado)
     
     if transacoes_removidas > 0:
-        print(f"   🗑️  Removidas transação(ões) com valor zerado")
+        logger.info(f"Removidas transação(ões) com valor zerado")
     
     df_consolidado = df_consolidado.sort_values('Data').reset_index(drop=True)
     
@@ -137,43 +140,40 @@ def consolidar_dados(dfs):
 
 
 def exportar_excel(df_consolidado, arquivo_output):
-    print(f"📄 Gerando planilha Excel...")
+    logger.info(f"📄 Gerando planilha Excel...")
     try:
         df_consolidado.to_excel(arquivo_output, index=False)
-        print(f"   ✅ Arquivo criado com sucesso!")
+        logger.info(f"✅ Arquivo criado com sucesso!")
         return True
     except Exception as e:
-        print(f"   ❌ Erro ao salvar Excel: {e}")
+        logger.error(f"Erro ao salvar Excel: {e}")
         return False
 
 
 def processar_extratos(args, config):
     bancos_para_processar = determinar_bancos_processar(args)
     
-    print("🏦 PROCESSADOR DE EXTRATOS BANCÁRIOS")
-    print("="*40)
+    logger.info("🏦 PROCESSADOR DE EXTRATOS BANCÁRIOS")
     
     # Verificar e filtrar bancos com arquivos válidos
     bancos_validos, avisos = verificar_e_filtrar_bancos(bancos_para_processar, config)
     
     # Mostrar avisos sobre arquivos faltando, mas continuar processamento
     if avisos:
-        print("⚠️  Arquivos não encontrados (bancos serão ignorados):")
+        logger.warning("Arquivos não encontrados (bancos serão ignorados):")
         for aviso in avisos:
-            print(f"   • {aviso}")
-        print("💡 Dica: Verifique os caminhos no arquivo config.json")
-        print()
+            logger.warning(f"• {aviso}")
+        logger.info("💡 Dica: Verifique os caminhos no arquivo config.json")
     
     # Verificar se há pelo menos um banco válido
     if not bancos_validos:
-        print("❌ Nenhum banco tem arquivos válidos para processar!")
-        print("💡 Verifique se os caminhos dos arquivos estão corretos no config.json")
+        logger.error("Nenhum banco tem arquivos válidos para processar!")
+        logger.info("💡 Verifique se os caminhos dos arquivos estão corretos no config.json")
         return False
     
     # Mostrar bancos que serão processados
     bancos_validos_nomes = [NOMES_BANCOS[b] for b in bancos_validos]
-    print(f"✅ Processando bancos: {', '.join(bancos_validos_nomes)}")
-    print()
+    logger.info(f"✅ Processando bancos: {', '.join(bancos_validos_nomes)}")
     
     dfs = processar_bancos(bancos_validos, config)
     
@@ -181,7 +181,7 @@ def processar_extratos(args, config):
     if df_consolidado is None:
         return False
     
-    print(f"🧮 Calculando saldos...")
+    logger.info(f"🧮 Calculando saldos...")
     df_consolidado = calcular_saldos(df_consolidado, config)
     detectar_transferencias_proprias(df_consolidado, config)
     
@@ -192,8 +192,6 @@ def processar_extratos(args, config):
     
     gerar_relatorio(df_consolidado)
     
-    print(f"\n{'='*40}")
-    print("✅ PROCESSAMENTO CONCLUÍDO COM SUCESSO!")
-    print("="*40)
+    logger.info("✅ PROCESSAMENTO CONCLUÍDO COM SUCESSO!")
     
     return True
