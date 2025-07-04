@@ -2,6 +2,7 @@
 config.json
 
 # Extract files (contain sensitive financial data)
+extratos/
 *.csv
 *.pdf
 *.xls
