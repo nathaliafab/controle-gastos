@@ -14,6 +14,11 @@ LOG_FILE = os.getenv('LOG_FILE', 'logs/app.log')
 
 def setup_logging():
     """Configura o sistema de logging"""
+    # Verificar se o logging já foi configurado
+    root_logger = logging.getLogger()
+    if root_logger.handlers:
+        return  # Logging já foi configurado
+    
     # Criar diretório de logs se não existir
     log_dir = Path(LOG_FILE).parent
     log_dir.mkdir(exist_ok=True)
@@ -35,7 +40,6 @@ def setup_logging():
     file_handler.setFormatter(formatter)
     
     # Configurar logger raiz
-    root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
     root_logger.addHandler(console_handler)
     root_logger.addHandler(file_handler)
