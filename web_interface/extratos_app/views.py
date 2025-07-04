@@ -209,9 +209,9 @@ def validar_multiplos_arquivos(request, cleaned_data):
     """Validar se múltiplos arquivos foram enviados para bancos que precisam"""
     erros = []
     
-    # Verificar BB
+    # Verificar BB (apenas arquivos_bb_ que NÃO sejam arquivos_bb_cartao_)
     if cleaned_data.get('usar_bb'):
-        bb_files = [k for k in request.FILES.keys() if k.startswith('arquivos_bb_')]
+        bb_files = [k for k in request.FILES.keys() if k.startswith('arquivos_bb_') and not k.startswith('arquivos_bb_cartao_')]
         if not bb_files:
             erros.append("Banco do Brasil foi selecionado mas nenhum arquivo foi enviado.")
         else:
@@ -224,7 +224,7 @@ def validar_multiplos_arquivos(request, cleaned_data):
                 if arquivo.size > 10 * 1024 * 1024:  # 10MB
                     erros.append(f"Arquivo muito grande ({arquivo.name}). Tamanho máximo: 10MB.")
     
-    # Verificar BB Cartão
+    # Verificar BB Cartão (apenas arquivos_bb_cartao_)
     if cleaned_data.get('usar_bb_cartao'):
         bb_cartao_files = [k for k in request.FILES.keys() if k.startswith('arquivos_bb_cartao_')]
         if not bb_cartao_files:
