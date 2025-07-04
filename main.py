@@ -14,6 +14,14 @@ sys.path.insert(0, str(root_dir / "core"))
 sys.path.insert(0, str(root_dir / "web_interface"))
 
 
+def setup_django_environment():
+    """Configurar ambiente Django para desenvolvimento"""
+    web_dir = root_dir / "web_interface"
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'web_extratos.settings')
+    sys.path.insert(0, str(web_dir))
+    return web_dir
+
+
 def main():
     print("🎯 Sistema de Controle de Gastos")
     print("=" * 40)
@@ -22,30 +30,45 @@ def main():
     if len(sys.argv) == 1:
         try:
             import django
+            from django.core.management import execute_from_command_line
+            
             print("🌐 Iniciando interface web...")
-            print("📝 Acesse: http://localhost:8000")
             print("⚡ Para usar via terminal: python3 core/main_terminal.py --help")
             print()
             
-            # Mudar para o diretório da interface web
-            web_dir = root_dir / "web_interface"
-            os.chdir(web_dir)
+            # Configurar ambiente Django
+            web_dir = setup_django_environment()
+            manage_py = str(web_dir / "manage.py")
             
-            # Executar migrações se necessário
-            os.system("python3 manage.py migrate --verbosity=0")
+            # Executar migrações
+            print("🗄️  Verificando migrações...")
+            try:
+                execute_from_command_line([manage_py, 'migrate', '--verbosity=0'])
+            except Exception as e:
+                print(f"⚠️  Erro ao executar migrações: {e}")
             
-            # Iniciar servidor
-            os.system("python3 manage.py runserver")
+            # Iniciar servidor HTTP simples
+            print("🌐 Iniciando servidor HTTP...")
+            print("📝 Acesse: http://127.0.0.1:8000/")
+            execute_from_command_line([manage_py, 'runserver', '127.0.0.1:8000'])
+            
             return
             
-        except ImportError:
-            print("⚠️  Django não encontrado. Usando interface de terminal.")
+        except ImportError as e:
+            print(f"⚠️  Django não encontrado: {e}")
             print("📋 Para instalar: pip install -r web_interface/requirements-web.txt")
+        except Exception as e:
+            print(f"❌ Erro ao iniciar interface web: {e}")
     
     # Usar interface de terminal
     print("💻 Usando interface de terminal...")
-    from core.main_terminal import main as terminal_main
-    terminal_main()
+    try:
+        from core.main_terminal import main as terminal_main
+        terminal_main()
+    except Exception as e:
+        print(f"❌ Erro ao iniciar interface de terminal: {e}")
+        print("📋 Verifique as dependências: pip install -r requirements.txt")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

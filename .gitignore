@@ -22,6 +22,10 @@ __pycache__/
 *$py.class
 *.so
 
+# Media
+web_interface/media/
+
+
 # Virtual environments
 .venv/
 venv/

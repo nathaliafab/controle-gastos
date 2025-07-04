@@ -1083,6 +1083,8 @@ function initializeFormValidation() {
                 showToast('Por favor, selecione um arquivo de configuração JSON.', 'warning', 4000);
                 return false;
             }
+            // Se arquivo de configuração foi selecionado, pular validações adicionais
+            window.formValidationPassed = true;
             return true;
         }
         
