@@ -22,6 +22,25 @@ Sistema para unificar extratos de diferentes bancos em uma tabela única, facili
 | **BB Cartão**      | Cartão de Crédito                  | PDF      |
 | **Itaú**           | Conta Corrente e Cartão de Crédito | XLS/XLSX |
 
+## Resultado
+
+O sistema processa os extratos e gera uma tabela unificada com as seguintes colunas:
+
+| Data                | Data_Contabil       | Banco           | Agencia_Conta            | Tipo_Transacao      | Descricao                     | Valor   | Valor_Entrada | Valor_Saida | Categoria_Auto   | Categoria | Descricao_Manual | Saldo_no_Banco | Saldo_Real |
+| ------------------- | ------------------- | --------------- | ------------------------ | ------------------- | ----------------------------- | ------- | ------------- | ----------- | ---------------- | --------- | ---------------- | -------------- | ---------- |
+| aaaa-mm-dd 00:00:00 | aaaa-mm-dd 00:00:00 | Banco do Brasil | CARD FinalXXXX           | Compra              | PG *YYYY PARC 01/02 ZZZZ (BR) | -239.58 | 0             | 239.58      | Cartão Crédito |           |                  | 8.44           | -231.14    |
+| aaaa-mm-dd 00:00:00 | aaaa-mm-dd 00:00:00 | Banco do Brasil | CARD FinalXXXX           | Compra              | PG *YYYY PARC 02/02 ZZZZ (BR) | -239.58 | 0             | 239.58      | Cartão Crédito |           |                  | 8.44           | -470.72    |
+| aaaa-mm-dd 00:00:00 | aaaa-mm-dd 00:00:00 | C6 Bank         | Ag: 1 / Conta: 123456789 | CREDITO OPERACAO B3 | dd/mm/aaaa                    | 0.02    | 0.02          | 0           | Investimentos    |           |                  | 8.46           | -470.70    |
+
+**Observações:**
+
+- Os extratos de cada banco possuem formatos diferentes, então algumas colunas podem variar. No entanto, as informações essenciais são sempre preservadas na tabela final.
+- As colunas "Categoria" e "Descricao_Manual" são deixadas em branco para que o usuário possa preencher manualmente, se necessário.
+- Compras no cartão de crédito e pagamentos de fatura são automaticamente classificados como "Cartão Crédito". Diferente do extrato original, as compras aparecem como saída (valor negativo) e o pagamento da fatura como entrada (valor positivo).
+- Transferências entre contas de bancos diferentes (por exemplo, do Bradesco para o C6 Bank) são reconhecidas e marcadas como "Transferência Própria". Sempre haverá uma correspondência entre a saída de um banco e a entrada no outro, com o mesmo valor e data.
+
+---
+
 ## Como Rodar
 
 ### Pré-requisitos
@@ -29,7 +48,9 @@ Sistema para unificar extratos de diferentes bancos em uma tabela única, facili
 - Python 3.8+
 - Pip (gerenciador de pacotes do Python)
 
-### Setup Automático
+### 1. Interface Web (Recomendado)
+
+#### Setup Automático
 
 Execute o script de configuração para desenvolvimento:
 
@@ -54,11 +75,7 @@ Este script irá:
 
 > **Nota:** O script é otimizado para desenvolvimento local e usa HTTP por padrão.
 
-### Executar o Sistema
-
-Após o setup, você pode executar o sistema de duas formas:
-
-#### 1. Interface Web (Recomendado)
+Em seguida, você pode executar o sistema web:
 
 ```bash
 # Ativar ambiente virtual (se não estiver ativo)
@@ -74,9 +91,21 @@ O sistema irá iniciar em `http://localhost:8000`
 
 > **Primeira execução:** O sistema pode solicitar criação de usuário administrador na primeira vez.
 
-#### 2. Interface Terminal
+### 2. Interface Terminal
 
-Para usar via linha de comando sem interface web:
+Primeiro, instale as dependências do terminal:
+
+```bash
+# Ativar ambiente virtual (se não estiver ativo)
+source venv/bin/activate  # Linux/Mac
+# ou
+venv\Scripts\activate     # Windows
+
+# Instalar dependências do terminal
+pip install -r requirements.txt
+```
+
+Para usar via linha de comando:
 
 ```bash
 # Ver opções disponíveis
