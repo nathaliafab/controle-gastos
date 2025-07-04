@@ -46,9 +46,12 @@ except ImportError:
 
 def _log_error(error_msg, exception=None):
     """Helper para log de erros"""
+    import logging
+    logger = logging.getLogger(__name__)
     if exception:
-        traceback.print_exc()
-    print(f"ERRO: {error_msg}")
+        logger.error(f"ERRO: {error_msg}", exc_info=True)
+    else:
+        logger.error(f"ERRO: {error_msg}")
 
 
 def _extract_body_content(html_content):

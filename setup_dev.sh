@@ -59,7 +59,6 @@ import secrets
 import string
 alphabet = string.ascii_letters + string.digits + '!@#$%^&*()-_=+[]{}|;:,.<>?'
 secret_key = ''.join(secrets.choice(alphabet) for _ in range(64))
-print(secret_key)
 ")
     
     # Gerar ENCRYPTION_KEY
@@ -68,7 +67,6 @@ import secrets
 import string
 alphabet = string.ascii_letters + string.digits
 encryption_key = ''.join(secrets.choice(alphabet) for _ in range(32))
-print(encryption_key)
 ")
     
     # Criar arquivo .env para DESENVOLVIMENTO

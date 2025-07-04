@@ -5,6 +5,9 @@ Utilitários compartilhados para processamento de extratos bancários.
 import pandas as pd
 import re
 from datetime import datetime
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def extrair_agencia_conta(arquivo_path: str, banco: str) -> str:
@@ -365,14 +368,13 @@ def detectar_transferencias_proprias(df: pd.DataFrame, config: dict) -> int:
 
 
 def gerar_relatorio(df: pd.DataFrame):
-    print(f"\n📊 RELATÓRIO CONSOLIDADO")
-    print("="*40)
+    logger.info(f"\n📊 RELATÓRIO CONSOLIDADO")
     
     total_transacoes = len(df)
     periodo_inicio = df['Data'].min().strftime('%d/%m/%Y')
     periodo_fim = df['Data'].max().strftime('%d/%m/%Y')
     
-    print(f"📅 Período: {periodo_inicio} a {periodo_fim}")
-    print(f"📈 Relatório processado")
+    logger.info(f"📅 Período: {periodo_inicio} a {periodo_fim}")
+    logger.info(f"📈 Relatório processado")
     
 

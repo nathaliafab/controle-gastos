@@ -4,10 +4,13 @@ Processador de extratos do C6 Bank.
 
 import pandas as pd
 from utils import categorizar_transacao_auto, criar_dataframe_padronizado, extrair_agencia_conta
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def processar(config: dict) -> pd.DataFrame:
-    print("📊 Processando C6 Bank...")
+    logger.info("📊 Processando C6 Bank...")
     
     try:
         arquivo_path = config['arquivos']['c6_bank']
@@ -24,7 +27,7 @@ def processar(config: dict) -> pd.DataFrame:
         df = df.dropna(how='all', axis=1).dropna(how='all', axis=0)
         
         if df.empty:
-            print("   ⚠️  Arquivo vazio")
+            logger.warning("Arquivo vazio")
             return pd.DataFrame()
         
         df['entrada_num'] = pd.to_numeric(df['Entrada(R$)'].fillna(0), errors='coerce')
@@ -55,9 +58,9 @@ def processar(config: dict) -> pd.DataFrame:
             ), axis=1
         )
         
-        print(f"   ✅ Transações processadas")
+        logger.info(f"✅ Transações processadas")
         return resultado
         
     except Exception as e:
-        print(f"   ❌ Erro: {e}")
+        logger.error(f"Erro: {e}")
         return pd.DataFrame()

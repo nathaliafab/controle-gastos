@@ -5,15 +5,18 @@ Gerenciador de configurações do processador de extratos bancários.
 import json
 import argparse
 from pathlib import Path
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def carregar_configuracao(arquivo_config='config.json'):
     config_path = Path(arquivo_config)
     
     if not config_path.exists():
-        print(f"❌ Arquivo de configuração não encontrado!")
-        print("💡 Crie o arquivo config.json com suas configurações")
-        print("📝 Consulte o config-exemplo.json para referência")
+        logger.error(f"Arquivo de configuração não encontrado!")
+        logger.info("💡 Crie o arquivo config.json com suas configurações")
+        logger.info("📝 Consulte o config-exemplo.json para referência")
         return None
     
     try:
@@ -21,8 +24,8 @@ def carregar_configuracao(arquivo_config='config.json'):
             config = json.load(f)
         return config
     except Exception as e:
-        print(f"❌ Erro ao carregar arquivo de configuração: {e}")
-        print("💡 Verifique se o arquivo está em formato JSON válido")
+        logger.error(f"Erro ao carregar arquivo de configuração: {e}")
+        logger.info("💡 Verifique se o arquivo está em formato JSON válido")
         return None
 
 
@@ -78,8 +81,8 @@ Exemplos de uso:
 
 def validar_argumentos(args):
     if not args.all and not any([args.c6, args.bradesco, args.bb, args.bb_cartao, args.itau]):
-        print("❌ Erro: Você deve especificar --all ou pelo menos um banco específico")
-        print("💡 Use --help para ver os exemplos de uso")
+        logger.error("Erro: Você deve especificar --all ou pelo menos um banco específico")
+        logger.info("💡 Use --help para ver os exemplos de uso")
         return False
     return True
 

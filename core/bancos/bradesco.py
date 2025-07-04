@@ -4,10 +4,13 @@ Processador de extratos do Bradesco.
 
 import pandas as pd
 from utils import categorizar_transacao_auto, criar_dataframe_padronizado, converter_valor_br, extrair_agencia_conta
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def processar(config: dict) -> pd.DataFrame:
-    print("📊 Processando Bradesco...")
+    logger.info("📊 Processando Bradesco...")
     
     try:
         arquivo_path = config['arquivos']['bradesco']
@@ -61,11 +64,11 @@ def processar(config: dict) -> pd.DataFrame:
             ), axis=1
         )
         
-        print(f"   ✅ Transações processadas")
+        logger.info(f"✅ Transações processadas")
         return resultado
         
     except Exception as e:
-        print(f"   ❌ Erro: {e}")
+        logger.error(f"Erro: {e}")
         return pd.DataFrame()
 
 
