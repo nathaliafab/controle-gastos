@@ -79,7 +79,7 @@ def determinar_bancos_processar(args):
 
 
 def processar_bancos(bancos_para_processar, config):
-    logger.info(f"\nProcessando extratos dos bancos selecionados...")
+    logger.info(f"Processando extratos dos bancos selecionados...")
     dfs = []
     
     for banco in bancos_para_processar:
@@ -119,7 +119,7 @@ def consolidar_dados(dfs):
         logger.error("Nenhum extrato foi processado com sucesso!")
         return None
     
-    logger.info(f"\n🔗 Consolidando dados...")
+    logger.info(f"🔗 Consolidando dados...")
     df_consolidado = pd.concat(dfs, ignore_index=True)
     
     transacoes_antes = len(df_consolidado)

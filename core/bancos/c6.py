@@ -9,6 +9,39 @@ from logger import get_logger
 logger = get_logger(__name__)
 
 
+def calcular_saldo_inicial_c6(df: pd.DataFrame) -> float:
+    """
+    Calcula o saldo inicial do C6 Bank baseado nas transações do dia mais antigo.
+    O saldo inicial é calculado como: Saldo do Dia - soma das transações do dia.
+    """
+    if df.empty:
+        return 0.0
+    
+    # Converter datas para datetime se ainda não foram
+    df['Data Lançamento'] = pd.to_datetime(df['Data Lançamento'], dayfirst=True, errors='coerce')
+    
+    # Encontrar o dia mais antigo
+    dia_mais_antigo = df['Data Lançamento'].min()
+    
+    # Filtrar transações do dia mais antigo
+    transacoes_dia_antigo = df[df['Data Lançamento'] == dia_mais_antigo]
+    
+    if transacoes_dia_antigo.empty:
+        return 0.0
+    
+    # Pegar o saldo do dia (assumindo que é o mesmo para todas as transações do dia)
+    saldo_do_dia = pd.to_numeric(transacoes_dia_antigo['Saldo do Dia(R$)'].iloc[0], errors='coerce')
+    
+    # Calcular soma das transações do dia
+    entradas = pd.to_numeric(transacoes_dia_antigo['Entrada(R$)'].fillna(0), errors='coerce').sum()
+    saidas = pd.to_numeric(transacoes_dia_antigo['Saída(R$)'].fillna(0), errors='coerce').sum()
+    total_transacoes_dia = entradas - saidas
+    
+    # Saldo inicial = Saldo do Dia - Transações do Dia
+    saldo_inicial = saldo_do_dia - total_transacoes_dia
+    return saldo_inicial
+
+
 def processar(config: dict) -> pd.DataFrame:
     logger.info("📊 Processando C6 Bank...")
     
@@ -29,6 +62,12 @@ def processar(config: dict) -> pd.DataFrame:
         if df.empty:
             logger.warning("Arquivo vazio")
             return pd.DataFrame()
+        
+        # Calcular saldo inicial automaticamente
+        saldo_inicial_calculado = calcular_saldo_inicial_c6(df)
+        
+        # Atualizar configuração com o saldo inicial calculado
+        config['saldos_iniciais']['c6_bank'] = saldo_inicial_calculado
         
         df['entrada_num'] = pd.to_numeric(df['Entrada(R$)'].fillna(0), errors='coerce')
         df['saida_num'] = pd.to_numeric(df['Saída(R$)'].fillna(0), errors='coerce')

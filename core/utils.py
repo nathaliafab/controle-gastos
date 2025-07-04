@@ -368,7 +368,7 @@ def detectar_transferencias_proprias(df: pd.DataFrame, config: dict) -> int:
 
 
 def gerar_relatorio(df: pd.DataFrame):
-    logger.info(f"\n📊 RELATÓRIO CONSOLIDADO")
+    logger.info(f"📊 RELATÓRIO CONSOLIDADO")
     
     total_transacoes = len(df)
     periodo_inicio = df['Data'].min().strftime('%d/%m/%Y')
