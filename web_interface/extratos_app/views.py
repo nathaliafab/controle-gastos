@@ -582,7 +582,6 @@ def download_resultado(request, processamento_id):
         as_attachment=True,
         filename=os.path.basename(processamento.arquivo_resultado.name)
     )
-    limpar_arquivo_resultado(processamento)
     return response
 
 
@@ -616,17 +615,3 @@ def limpar_arquivos_upload(processamento):
     except Exception as e:
         # Se houver erro na limpeza, apenas registrar mas não falhar o processamento
         _log_error("Erro ao limpar arquivos de upload", e)
-
-
-def limpar_arquivo_resultado(processamento):
-    """Remove o arquivo resultado após o usuário sair da página"""
-    try:
-        if processamento.arquivo_resultado:
-            _remover_arquivo_seguro(processamento.arquivo_resultado.path)
-            processamento.arquivo_resultado = None
-            processamento.save()
-    except Exception as e:
-        _log_error("Erro ao limpar arquivo resultado", e)
-
-
-

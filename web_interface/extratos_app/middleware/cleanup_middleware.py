@@ -28,8 +28,16 @@ class PeriodicFileCleanupMiddleware(MiddlewareMixin):
             self.TIMESTAMP_FILE.write_text(str(now))
 
     def clean_folder(self):
+        now = time.time()
         for file in self.TARGET_FOLDER.iterdir():
-            if file.is_file() and file.name != ".gitkeep" and file.name != ".last_cleanup":
+            if (
+                file.is_file()
+                and file.name != ".gitkeep"
+                and file.name != ".last_cleanup"
+            ):
+                # Não apaga arquivos criados nos últimos 5 minutos
+                if now - file.stat().st_mtime < 5 * 60:
+                    continue
                 try:
                     file.unlink()
                 except Exception as e:
