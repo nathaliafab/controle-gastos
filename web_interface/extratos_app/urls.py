@@ -11,4 +11,5 @@ urlpatterns = [
     path('processar/', views.processar_extratos_view, name='processar'),
     path('resultado/<uuid:processamento_id>/', views.resultado, name='resultado'),
     path('download/<uuid:processamento_id>/', views.download_resultado, name='download'),
+    path('cleanup/<uuid:processamento_id>/', views.cleanup_file, name='cleanup'),
 ]

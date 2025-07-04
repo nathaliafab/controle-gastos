@@ -10,8 +10,9 @@ from pathlib import Path
 import pandas as pd
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.core.files.base import ContentFile
+from django.http import JsonResponse
 
 from .models import ProcessamentoExtrato, ArquivoExtrato
 from .forms import ProcessamentoExtratoForm
@@ -614,3 +615,26 @@ def limpar_arquivos_upload(processamento):
     except Exception as e:
         # Se houver erro na limpeza, apenas registrar mas não falhar o processamento
         _log_error("Erro ao limpar arquivos de upload", e)
+
+
+def limpar_arquivo_resultado(processamento):
+    """Remove o arquivo resultado após o usuário sair da página"""
+    try:
+        if processamento.arquivo_resultado:
+            _remover_arquivo_seguro(processamento.arquivo_resultado.path)
+            processamento.arquivo_resultado = None
+            processamento.save()
+    except Exception as e:
+        _log_error("Erro ao limpar arquivo resultado", e)
+
+
+def cleanup_file(request, processamento_id):
+    """Endpoint para limpar arquivo quando usuário sai da página"""
+    if request.method == 'POST':
+        try:
+            processamento = get_object_or_404(ProcessamentoExtrato, id=processamento_id)
+            limpar_arquivo_resultado(processamento)
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})

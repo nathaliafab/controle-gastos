@@ -4,6 +4,7 @@
 {% block title %}Resultado - Controle de Gastos{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="hero-section">
     <div class="container">
         <div class="row justify-content-center">
@@ -254,5 +255,25 @@ function optimizeTableContainers() {
         }
     });
 }
+
+// Limpar arquivo quando usuário sair da página
+function cleanupFile() {
+    fetch('{% url "extratos:cleanup" processamento.id %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        }
+    }).catch(() => {}); // Ignorar erros
+}
+
+// Detectar quando usuário sai da página
+window.addEventListener('beforeunload', cleanupFile);
+window.addEventListener('pagehide', cleanupFile);
+
+// Limpar após download (aguardar 30 segundos)
+document.querySelector('a[href*="download"]')?.addEventListener('click', function() {
+    setTimeout(cleanupFile, 30000);
+});
 </script>
 {% endblock %}
