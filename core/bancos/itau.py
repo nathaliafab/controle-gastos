@@ -4,6 +4,7 @@ Processador de extratos do Itaú.
 
 import pandas as pd
 from utils import categorizar_transacao_auto, criar_dataframe_padronizado, extrair_agencia_conta
+import re
 
 
 def processar(config: dict) -> pd.DataFrame:
@@ -77,6 +78,10 @@ def _processar_conta_corrente(arquivo_path: str, config: dict) -> pd.DataFrame:
         ].copy()
         
         df_filtrado['valor_num'] = pd.to_numeric(df_filtrado.iloc[:, 2], errors='coerce')
+
+        # Se for pagamento de fatura (ITAU NOME NUM-NUM), valor deve ser positivo
+        mask_pagamento_fatura = df_filtrado.iloc[:, 1].astype(str).str.match(r'ITAU .+ \d+-\d+')
+        df_filtrado.loc[mask_pagamento_fatura, 'valor_num'] = df_filtrado.loc[mask_pagamento_fatura, 'valor_num'].abs()
         
         df_filtrado[['entrada', 'saida']] = df_filtrado.apply(
             lambda row: pd.Series(_calcular_valores_entrada_saida(row)), axis=1
@@ -98,14 +103,7 @@ def _processar_conta_corrente(arquivo_path: str, config: dict) -> pd.DataFrame:
         resultado = resultado.dropna(subset=['Data', 'Valor'])
         resultado = resultado[resultado['Valor'] != 0]
         
-        resultado['Categoria_Auto'] = resultado.apply(
-            lambda row: categorizar_transacao_auto(
-                row['Tipo_Transacao'], 
-                row['Descricao'], 
-                row['Valor'], 
-                config['categorias']
-            ), axis=1
-        )
+        resultado['Categoria_Auto'] = resultado.apply(lambda row: categorizar_itau(row, config), axis=1)
         
         print(f"   ✅ Transações processadas")
         return resultado
@@ -221,24 +219,7 @@ def _processar_cartao_credito(arquivo_path: str, config: dict) -> pd.DataFrame:
             'Tipo_Transacao', 'Descricao', 'Valor', 'Valor_Entrada', 'Valor_Saida'
         ])
         
-        # Categorização automática - com lógica especial para cartões
-        def categorizar_itau(row):
-            agencia_conta = row['Agencia_Conta']
-            valor = row['Valor']
-            
-            # Se é cartão de crédito (formato "XXXX - NOME") e é gasto (negativo)
-            if ' - ' in agencia_conta and agencia_conta.split(' - ')[0].isdigit() and valor < 0:
-                return "Cartão Crédito"
-            
-            # Para todos os outros casos, usar categorização normal
-            return categorizar_transacao_auto(
-                row['Tipo_Transacao'], 
-                row['Descricao'], 
-                row['Valor'], 
-                config['categorias']
-            )
-        
-        resultado['Categoria_Auto'] = resultado.apply(categorizar_itau, axis=1)
+        resultado['Categoria_Auto'] = resultado.apply(lambda row: categorizar_itau(row, config), axis=1)
         
         print(f"   ✅ Transações processadas")
         return resultado
@@ -248,6 +229,21 @@ def _processar_cartao_credito(arquivo_path: str, config: dict) -> pd.DataFrame:
         import traceback
         traceback.print_exc()
         return pd.DataFrame()
+
+
+# Categorização automática - com lógica especial para cartões
+def categorizar_itau(row, config):
+    agencia_conta = row['Agencia_Conta']
+    tipo_tran = row['Tipo_Transacao']
+
+    if re.match(r'^\d{4} - .+', agencia_conta) or re.match(r'^ITAU\s+.+\s+\d+-\d+$', tipo_tran):
+        return "Cartão Crédito"
+    return categorizar_transacao_auto(
+        row['Tipo_Transacao'],
+        row['Descricao'],
+        row['Valor'],
+        config['categorias']
+    )
 
 
 def _extrair_saldo_anterior(df: pd.DataFrame, config: dict) -> None:
