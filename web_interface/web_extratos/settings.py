@@ -40,6 +40,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'extratos_app.middleware.cleanup_middleware.PeriodicFileCleanupMiddleware',
 ]
 
 ROOT_URLCONF = 'web_extratos.urls'

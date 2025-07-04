@@ -14,6 +14,7 @@ db.sqlite3-journal
 web_interface/db.sqlite3
 staticfiles/
 .env
+.DJANGO_SECRET_KEY
 
 # Python files
 __pycache__/
