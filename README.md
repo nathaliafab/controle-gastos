@@ -39,6 +39,8 @@ pip install -r web_interface/requirements-web.txt
 ### Configurar Banco de Dados (primeira vez)
 
 ```bash
+echo "export SECRET_KEY='$(openssl rand -hex 40)'" > .DJANGO_SECRET_KEY
+source .DJANGO_SECRET_KEY
 cd web_interface
 python3 manage.py makemigrations
 python3 manage.py migrate
