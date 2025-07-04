@@ -582,6 +582,7 @@ def download_resultado(request, processamento_id):
         as_attachment=True,
         filename=os.path.basename(processamento.arquivo_resultado.name)
     )
+    limpar_arquivo_resultado(processamento)
     return response
 
 
@@ -628,13 +629,4 @@ def limpar_arquivo_resultado(processamento):
         _log_error("Erro ao limpar arquivo resultado", e)
 
 
-def cleanup_file(request, processamento_id):
-    """Endpoint para limpar arquivo quando usuário sai da página"""
-    if request.method == 'POST':
-        try:
-            processamento = get_object_or_404(ProcessamentoExtrato, id=processamento_id)
-            limpar_arquivo_resultado(processamento)
-            return JsonResponse({'success': True})
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
-    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
