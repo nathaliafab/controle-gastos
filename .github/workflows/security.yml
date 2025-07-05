@@ -57,17 +57,17 @@ jobs:
           name: trivy-main-sarif # Nome do artefato
           path: trivy-results-main.sarif # Caminho do arquivo a ser upado
 
-      # ---------------------- TRIVY - web_interface/requirements-web.txt ----------------------
-      - name: Run Trivy vulnerability scanner for web_interface/requirements-web.txt
+      # ---------------------- TRIVY - web_interface/requirements.txt.txt ----------------------
+      - name: Run Trivy vulnerability scanner for web_interface/requirements.txt.txt
         uses: aquasecurity/trivy-action@0.20.0
         with:
           scan-type: 'fs'
-          scan-ref: 'web_interface/requirements-web.txt'
+          scan-ref: 'web_interface/requirements.txt.txt'
           format: 'sarif'
           limit-severities-for-sarif: false
           output: 'trivy-results-web.sarif' # Nome de arquivo único
 
-      - name: Upload Trivy SARIF results for web_interface/requirements-web.txt to Code Scanning
+      - name: Upload Trivy SARIF results for web_interface/requirements.txt.txt to Code Scanning
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results-web.sarif
