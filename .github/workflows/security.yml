@@ -13,7 +13,6 @@ on:
 permissions:
   contents: read
   security-events: write
-  # Adicionar permissão para comentar em PRs
   pull-requests: write # Necessário para o bot comentar no PR
 
 jobs:
@@ -261,7 +260,7 @@ jobs:
               markdown = "### 🚨 Resumo de Vulnerabilidades CVE Encontradas 🚨\n\n"
               markdown += "Esta tabela lista as vulnerabilidades CVE detectadas neste Pull Request com severidade Crítica, Alta ou Média.\n\n"
               markdown += "| Ferramenta | CVE ID | Severidade | Pacote | Versão Corrigida | Descrição | Localização | Link |\n"
-              markdown += "|---|---|---|---|---|---|---|---|\n"
+              markdown += "|:---|:---|:---|:---|:---|:---|:---|:---|\n" # Alinha as colunas para melhor visualização
 
               for vul in sorted_vulnerabilities:
                   tool = vul['tool']
@@ -271,6 +270,9 @@ jobs:
                   fixed_version = vul['fixed_version']
                   # Escapa barras e quebras de linha para o Markdown
                   description = vul['description'].replace('\n', ' ').replace('|', '\\|')
+                  # Escapa asteriscos que podem quebrar o Markdown
+                  description = description.replace('*', '\\*')
+
                   location = vul['location'].replace('|', '\\|')
                   link = vul['link']
 
@@ -306,7 +308,8 @@ jobs:
               # Escreve para um arquivo que a ação 'peter-evans/create-or-update-comment' pode ler.
               with open('cve_summary.md', 'w') as f:
                   f.write(markdown_output)
-              
+          # A linha 'EOF' para o 'cat' está *fora* do script Python, aqui embaixo!
+          EOF
 
       - name: Generate CVE Table Markdown
         run: python scripts/generate_cve_table.py
@@ -316,7 +319,5 @@ jobs:
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body-path: cve_summary.md # O conteúdo do comentário virá deste arquivo
-          # Define um ID único para o comentário. Se um comentário com este ID já existir,
-          # ele será atualizado em vez de criar um novo.
-          comment-id: 'cve-summary-comment'
+          comment-id: 'cve-summary-comment' # Define um ID único para o comentário
           update-mode: replace # Substitui o conteúdo do comentário existente
