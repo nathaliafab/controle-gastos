@@ -139,6 +139,7 @@ jobs:
         run: |
           # Este comando cria o arquivo Python 'generate_cve_table.py'
           # no diretório 'scripts' com o conteúdo abaixo.
+          # Este é o código Python aprimorado para gerar a tabela corretamente.
           cat << 'EOF' > scripts/generate_cve_table.py
           import json
           import os
@@ -147,94 +148,109 @@ jobs:
           def parse_sarif_file(file_path):
               vulnerabilities = []
               try:
-                  with open(file_path, 'r') as f:
+                  with open(file_path, 'r', encoding='utf-8') as f:
                       sarif_data = json.load(f)
 
                   for run in sarif_data.get('runs', []):
-                      tool_name = run.get('tool', {}).get('driver', {}).get('name', 'Unknown Tool')
+                      tool_name = run.get('tool', {}).get('driver', {}).get('name', 'Ferramenta Desconhecida')
+                      rules = {rule.get('id'): rule for rule in run.get('tool', {}).get('driver', {}).get('rules', [])}
+
                       for result in run.get('results', []):
                           cve_id = None
-                          severity = result.get('level', 'note').upper() # error, warning, note
-                          description = result.get('message', {}).get('text', 'No description').strip()
+                          severity_level = result.get('level', 'note').upper()
+                          severity = 'UNKNOWN'
+
+                          description = result.get('message', {}).get('text', 'Sem descrição').strip()
                           location = 'N/A'
                           link = 'N/A'
                           package = 'N/A'
                           fixed_version = 'N/A'
 
-                          # Tenta extrair CVE do ruleId ou das propriedades
-                          if 'ruleId' in result:
-                              if result['ruleId'].startswith('CVE-'):
-                                  cve_id = result['ruleId']
-                              elif 'properties' in result and 'vulnerability-id' in result['properties']:
-                                  if result['properties']['vulnerability-id'].startswith('CVE-'):
-                                      cve_id = result['properties']['vulnerability-id']
+                          rule_id = result.get('ruleId')
+                          if rule_id and rule_id.startswith('CVE-'):
+                              cve_id = rule_id
                           elif 'properties' in result and 'vulnerability-id' in result['properties']:
                               if result['properties']['vulnerability-id'].startswith('CVE-'):
                                   cve_id = result['properties']['vulnerability-id']
 
-                          # Extrai a severidade de forma mais precisa se disponível nas propriedades
                           if 'properties' in result and 'security-severity' in result['properties']:
-                              sec_severity = float(result['properties']['security-severity'])
-                              if sec_severity >= 9.0:
-                                  severity = 'CRITICAL'
-                              elif sec_severity >= 7.0:
-                                  severity = 'HIGH'
-                              elif sec_severity >= 4.0:
-                                  severity = 'MEDIUM'
-                              else:
-                                  severity = 'LOW'
-                          elif severity == 'ERROR': # Nível 'error' do SARIF geralmente significa alta severidade
-                              severity = 'HIGH'
-                          elif severity == 'WARNING':
-                              severity = 'MEDIUM'
-                          elif severity == 'NOTE':
-                              severity = 'LOW'
+                              try:
+                                  sec_severity = float(result['properties']['security-severity'])
+                                  if sec_severity >= 9.0:
+                                      severity = 'CRITICAL'
+                                  elif sec_severity >= 7.0:
+                                      severity = 'HIGH'
+                                  elif sec_severity >= 4.0:
+                                      severity = 'MEDIUM'
+                                  else:
+                                      severity = 'LOW'
+                              except ValueError:
+                                  pass
 
-                          # Extrai a localização (caminho do arquivo)
+                          if severity == 'UNKNOWN':
+                              if severity_level == 'ERROR':
+                                  severity = 'HIGH'
+                              elif severity_level == 'WARNING':
+                                  severity = 'MEDIUM'
+                              elif severity_level == 'NOTE':
+                                  severity = 'LOW'
+
                           if 'locations' in result and result['locations']:
                               physical_location = result['locations'][0].get('physicalLocation', {})
                               artifact_location = physical_location.get('artifactLocation', {})
                               uri = artifact_location.get('uri')
                               if uri:
-                                  # Com a v4 do download-artifact, os arquivos são baixados diretamente
-                                  # para o diretório 'sarif-artifacts', sem subdiretórios com o nome do artefato.
-                                  # Então, o caminho será 'sarif-artifacts/trivy-results-main.sarif'
-                                  # ou 'sarif-artifacts/trivy-results-web.sarif', etc.
-                                  # Precisamos apenas do nome do arquivo SARIF no final.
                                   location = os.path.basename(uri)
 
-
-                          # Extrai o link (geralmente de rule.helpUri ou propriedades)
-                          rule_id = result.get('ruleId')
-                          if rule_id and 'rules' in run.get('tool', {}).get('driver', {}):
-                              for rule in run['tool']['driver']['rules']:
-                                  if rule.get('id') == rule_id and 'helpUri' in rule:
-                                      link = rule['helpUri']
-                                      break
+                          if rule_id and rule_id in rules and 'helpUri' in rules[rule_id]:
+                              link = rules[rule_id]['helpUri']
                           if 'properties' in result and 'link' in result['properties']:
                               link = result['properties']['link']
+                          if "Link: [" in description and "](https://" in description:
+                              try:
+                                  link_start = description.find("](https://") + 3
+                                  link_end = description.find(")", link_start)
+                                  extracted_link = description[link_start:link_end]
+                                  if extracted_link.startswith("https://"):
+                                      link = extracted_link
+                              except Exception:
+                                  pass
 
-                          # Extrai pacote e versão corrigida (comum no Trivy para escaneamento de dependências)
                           if 'properties' in result:
                               if 'PkgName' in result['properties']:
                                   package = result['properties']['PkgName']
                               if 'FixedVersion' in result['properties']:
                                   fixed_version = result['properties']['FixedVersion']
-                          # Fallback para parsing da descrição se as propriedades não forem explícitas
-                          if "Package:" in description and "Fixed Version:" in description:
+                          
+                          original_description = description
+                          if "Package:" in original_description and "Installed Version:" in original_description:
                               try:
-                                  pkg_start = description.find("Package:") + len("Package:")
-                                  pkg_end = description.find(",", pkg_start)
-                                  package = description[pkg_start:pkg_end].strip()
+                                  pkg_info_start = original_description.find("Package:")
+                                  fixed_version_info_start = original_description.find("Fixed Version:")
+                                  if fixed_version_info_start != -1:
+                                      description = original_description[:fixed_version_info_start].strip()
+                                  else:
+                                      first_comma_after_pkg = original_description.find(",", pkg_info_start)
+                                      if first_comma_after_pkg != -1:
+                                          description = original_description[:first_comma_after_pkg].strip()
+                                      else:
+                                          description = original_description
 
-                                  fixed_start = description.find("Fixed Version:") + len("Fixed Version:")
-                                  fixed_end = description.find(".", fixed_start)
-                                  fixed_version = description[fixed_start:fixed_end].strip()
-                              except:
-                                  pass # Falha no parsing, mantém N/A
+                                  if package == 'N/A' and "Package:" in original_description:
+                                      pkg_start = original_description.find("Package:") + len("Package:")
+                                      pkg_end = original_description.find(" ", pkg_start)
+                                      package = original_description[pkg_start:pkg_end].strip()
+
+                                  if fixed_version == 'N/A' and "Fixed Version:" in original_description:
+                                      fixed_start = original_description.find("Fixed Version:") + len("Fixed Version:")
+                                      fixed_end = original_description.find(" ", fixed_start)
+                                      fixed_version = original_description[fixed_start:fixed_end].strip()
+                              except Exception as e:
+                                  print(f"Erro ao analisar descrição para pacote/versão: {e}", file=sys.stderr)
+                                  description = original_description
 
 
-                          if cve_id: # Inclui apenas se um ID de CVE foi encontrado
+                          if cve_id:
                               vulnerabilities.append({
                                   'tool': tool_name,
                                   'cve_id': cve_id,
@@ -245,6 +261,8 @@ jobs:
                                   'fixed_version': fixed_version,
                                   'link': link
                               })
+              except json.JSONDecodeError as e:
+                  print(f"Erro de decodificação JSON no arquivo SARIF {file_path}: {e}", file=sys.stderr)
               except Exception as e:
                   print(f"Erro ao analisar arquivo SARIF {file_path}: {e}", file=sys.stderr)
               return vulnerabilities
@@ -253,14 +271,15 @@ jobs:
               if not vulnerabilities:
                   return "🎉 Parabéns! Nenhuma vulnerabilidade CVE crítica, alta ou média foi encontrada neste Pull Request. 🎉\n\nContinue com o bom trabalho!"
 
-              # Ordena por severidade: CRITICAL, HIGH, MEDIUM, LOW
               severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'NOTE': 4, 'UNKNOWN': 5}
               sorted_vulnerabilities = sorted(vulnerabilities, key=lambda x: severity_order.get(x['severity'], 99))
 
               markdown = "### 🚨 Resumo de Vulnerabilidades CVE Encontradas 🚨\n\n"
               markdown += "Esta tabela lista as vulnerabilidades CVE detectadas neste Pull Request com severidade Crítica, Alta ou Média.\n\n"
+              # Linha de cabeçalho da tabela Markdown
               markdown += "| Ferramenta | CVE ID | Severidade | Pacote | Versão Corrigida | Descrição | Localização | Link |\n"
-              markdown += "|:---|:---|:---|:---|:---|:---|:---|:---|\n" # Alinha as colunas para melhor visualização
+              # Linha de alinhamento da tabela Markdown (crucial para o GitHub renderizar a tabela)
+              markdown += "|:---|:---|:---|:---|:---|:---|:---|:---|\n"
 
               for vul in sorted_vulnerabilities:
                   tool = vul['tool']
@@ -268,26 +287,28 @@ jobs:
                   severity = vul['severity']
                   package = vul['package']
                   fixed_version = vul['fixed_version']
-                  # Escapa barras e quebras de linha para o Markdown
-                  description = vul['description'].replace('\n', ' ').replace('|', '\\|')
-                  # Escapa asteriscos que podem quebrar o Markdown
-                  description = description.replace('*', '\\*')
+                  
+                  # Escapa caracteres especiais para que não quebrem a tabela Markdown
+                  description = vul['description'].replace('\n', ' ').replace('|', '\\|').replace('*', '\\*')
 
                   location = vul['location'].replace('|', '\\|')
                   link = vul['link']
 
-                  # Trunca a descrição se for muito longa
-                  if len(description) > 100:
-                      description = description[:97] + "..."
+                  # Trunca a descrição se for muito longa para manter a tabela compacta
+                  if len(description) > 150:
+                      description = description[:147] + "..."
 
-                  markdown += f"| {tool} | {cve_id} | **{severity}** | {package} | {fixed_version} | {description} | {location} | [Link]({link}) |\n"
+                  # Formata o link para ser clicável no Markdown
+                  formatted_link = f"[Link]({link})" if link and link != 'N/A' else 'N/A'
+
+                  # Constrói a linha da tabela com separadores '|'
+                  markdown += f"| {tool} | {cve_id} | **{severity}** | {package} | {fixed_version} | {description} | {location} | {formatted_link} |\n"
 
               markdown += "\n*Observação: A severidade é baseada na classificação da ferramenta de segurança.*"
               return markdown
 
           if __name__ == "__main__":
               sarif_files_to_process = []
-              # Lista todos os arquivos SARIF no diretório de artefatos baixados
               for root, _, files in os.walk('sarif-artifacts'):
                   for file in files:
                       if file.endswith('.sarif'):
@@ -297,7 +318,6 @@ jobs:
               for sarif_file in sarif_files_to_process:
                   all_vulnerabilities.extend(parse_sarif_file(sarif_file))
 
-              # Filtra por severidade CRÍTICA, ALTA e MÉDIA para o comentário do PR
               filtered_vulnerabilities = [
                   v for v in all_vulnerabilities
                   if v['severity'] in ['CRITICAL', 'HIGH', 'MEDIUM']
@@ -305,10 +325,8 @@ jobs:
 
               markdown_output = generate_markdown_table(filtered_vulnerabilities)
 
-              # Escreve para um arquivo que a ação 'peter-evans/create-or-update-comment' pode ler.
-              with open('cve_summary.md', 'w') as f:
+              with open('cve_summary.md', 'w', encoding='utf-8') as f:
                   f.write(markdown_output)
-          # A linha 'EOF' para o 'cat' está *fora* do script Python, aqui embaixo!
           EOF
 
       - name: Generate CVE Table Markdown
@@ -318,6 +336,6 @@ jobs:
         uses: peter-evans/create-or-update-comment@v3
         with:
           issue-number: ${{ github.event.pull_request.number }}
-          body-path: cve_summary.md # O conteúdo do comentário virá deste arquivo
-          comment-id: 'cve-summary-comment' # Define um ID único para o comentário
-          update-mode: replace # Substitui o conteúdo do comentário existente
+          body-path: cve_summary.md
+          comment-id: 'cve-summary-comment'
+          update-mode: replace
