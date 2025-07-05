@@ -55,7 +55,7 @@ def main():
             
         except ImportError as e:
             logger.warning(f"Django não encontrado: {e}")
-            logger.info("📋 Para instalar: pip install -r web_interface/requirements-web.txt")
+            logger.info("📋 Para instalar: pip install -r web_interface/requirements.txt")
         except Exception as e:
             logger.error(f"Erro ao iniciar interface web: {e}")
     
