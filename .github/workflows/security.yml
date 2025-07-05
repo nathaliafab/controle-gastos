@@ -144,8 +144,18 @@ jobs:
           import json
           import os
           import sys
+          import re # Importa o módulo de expressões regulares
 
           def parse_sarif_file(file_path):
+              """
+              Analisa um arquivo SARIF e extrai informações de vulnerabilidades.
+
+              Args:
+                  file_path (str): O caminho para o arquivo SARIF.
+
+              Returns:
+                  list: Uma lista de dicionários, onde cada dicionário representa uma vulnerabilidade.
+              """
               vulnerabilities = []
               try:
                   with open(file_path, 'r', encoding='utf-8') as f:
@@ -160,10 +170,11 @@ jobs:
                           severity_level = result.get('level', 'note').upper()
                           severity = 'UNKNOWN'
 
-                          description = result.get('message', {}).get('text', 'Sem descrição').strip()
+                          original_description = result.get('message', {}).get('text', 'Sem descrição').strip()
                           location = 'N/A'
                           link = 'N/A'
                           package = 'N/A'
+                          vulnerable_version = 'N/A' # Novo campo para a versão vulnerável
                           fixed_version = 'N/A'
 
                           rule_id = result.get('ruleId')
@@ -206,48 +217,63 @@ jobs:
                               link = rules[rule_id]['helpUri']
                           if 'properties' in result and 'link' in result['properties']:
                               link = result['properties']['link']
-                          if "Link: [" in description and "](https://" in description:
+                          
+                          # Tenta extrair link da descrição como fallback
+                          if "Link: [" in original_description and "](https://" in original_description:
                               try:
-                                  link_start = description.find("](https://") + 3
-                                  link_end = description.find(")", link_start)
-                                  extracted_link = description[link_start:link_end]
-                                  if extracted_link.startswith("https://"):
-                                      link = extracted_link
+                                  link_match = re.search(r"\]\((https?://[^\s)]+)\)", original_description)
+                                  if link_match and link == 'N/A': # Só atualiza se o link ainda não foi encontrado
+                                      link = link_match.group(1)
                               except Exception:
                                   pass
 
+                          # --- Extração de Pacote, Versão Vulnerável e Versão Corrigida ---
+                          # Prioriza propriedades SARIF se disponíveis
                           if 'properties' in result:
                               if 'PkgName' in result['properties']:
                                   package = result['properties']['PkgName']
                               if 'FixedVersion' in result['properties']:
                                   fixed_version = result['properties']['FixedVersion']
+                              # Trivy muitas vezes coloca a versão instalada/vulnerável em 'InstalledVersion'
+                              if 'InstalledVersion' in result['properties']:
+                                  vulnerable_version = result['properties']['InstalledVersion']
+
+                          # Fallback: Tentar extrair do texto da descrição se as propriedades não preencheram tudo
+                          # Usar regex para uma extração mais robusta
+                          if package == 'N/A' or vulnerable_version == 'N/A' or fixed_version == 'N/A':
+                              # Captura o nome do Pacote
+                              match_pkg = re.search(r"Package:\s*([^,\s]+)", original_description)
+                              if match_pkg and package == 'N/A':
+                                  package = match_pkg.group(1).strip()
+
+                              # Captura a Versão Instalada (Vulnerável)
+                              match_installed_ver = re.search(r"Installed Version:\s*([^,\s]+)", original_description)
+                              if match_installed_ver and vulnerable_version == 'N/A':
+                                  vulnerable_version = match_installed_ver.group(1).strip()
+
+                              # Captura a Versão Corrigida
+                              match_fixed_ver = re.search(r"Fixed Version:\s*([^,\s]+)", original_description)
+                              if match_fixed_ver and fixed_version == 'N/A':
+                                  fixed_version = match_fixed_ver.group(1).strip()
                           
-                          original_description = description
-                          if "Package:" in original_description and "Installed Version:" in original_description:
-                              try:
-                                  pkg_info_start = original_description.find("Package:")
-                                  fixed_version_info_start = original_description.find("Fixed Version:")
-                                  if fixed_version_info_start != -1:
-                                      description = original_description[:fixed_version_info_start].strip()
-                                  else:
-                                      first_comma_after_pkg = original_description.find(",", pkg_info_start)
-                                      if first_comma_after_pkg != -1:
-                                          description = original_description[:first_comma_after_pkg].strip()
-                                      else:
-                                          description = original_description
-
-                                  if package == 'N/A' and "Package:" in original_description:
-                                      pkg_start = original_description.find("Package:") + len("Package:")
-                                      pkg_end = original_description.find(" ", pkg_start)
-                                      package = original_description[pkg_start:pkg_end].strip()
-
-                                  if fixed_version == 'N/A' and "Fixed Version:" in original_description:
-                                      fixed_start = original_description.find("Fixed Version:") + len("Fixed Version:")
-                                      fixed_end = original_description.find(" ", fixed_start)
-                                      fixed_version = original_description[fixed_start:fixed_end].strip()
-                              except Exception as e:
-                                  print(f"Erro ao analisar descrição para pacote/versão: {e}", file=sys.stderr)
-                                  description = original_description
+                          # --- Limpeza da Descrição ---
+                          # Remove as partes de pacote/versão/severidade/CVE da descrição para evitar redundância na tabela
+                          clean_description = original_description
+                          patterns_to_remove = [
+                              r"Vulnerability\s+CVE-\d{4}-\d{5,7}\s*Severity:\s*(CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN)",
+                              r"Package:\s*[^ ]+\s*Installed Version:\s*[^ ]+",
+                              r"Fixed Version:\s*[^ ]+",
+                              r"Link:\s*\[CVE-\d{4}-\d{5,7}\]\(https?://[^\s)]+\d+\)" # Remove formato de link Trivy específico
+                          ]
+                          for pattern in patterns_to_remove:
+                              clean_description = re.sub(pattern, "", clean_description, flags=re.IGNORECASE).strip()
+                          
+                          # Remove múltiplos espaços e quebras de linha restantes
+                          clean_description = re.sub(r'\s+', ' ', clean_description).strip()
+                          
+                          # Se a descrição limpa ficar vazia, usa a original como fallback, mas tenta limpá-la minimamente
+                          if not clean_description:
+                              clean_description = original_description.replace('\n', ' ').strip()
 
 
                           if cve_id:
@@ -255,9 +281,10 @@ jobs:
                                   'tool': tool_name,
                                   'cve_id': cve_id,
                                   'severity': severity,
-                                  'description': description,
+                                  'description': clean_description, # Usar a descrição limpa
                                   'location': location,
                                   'package': package,
+                                  'vulnerable_version': vulnerable_version, # Novo campo
                                   'fixed_version': fixed_version,
                                   'link': link
                               })
@@ -268,24 +295,35 @@ jobs:
               return vulnerabilities
 
           def generate_markdown_table(vulnerabilities):
-              if not vulnerabilities:
-                  return "🎉 Parabéns! Nenhuma vulnerabilidade CVE crítica, alta ou média foi encontrada neste Pull Request. 🎉\n\nContinue com o bom trabalho!"
+              """
+              Gera uma tabela Markdown a partir de uma lista de vulnerabilidades.
 
+              Args:
+                  vulnerabilities (list): Uma lista de dicionários de vulnerabilidades.
+
+              Returns:
+                  str: A tabela formatada em Markdown.
+              """
+              if not vulnerabilities:
+                  return "🎉 Parabéns! Nenhuma vulnerabilidade CVE crítica, alta ou média foi encontrada neste Pull Request. �\n\nContinue com o bom trabalho!"
+
+              # Ordena por severidade: CRITICAL, HIGH, MEDIUM, LOW
               severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'NOTE': 4, 'UNKNOWN': 5}
               sorted_vulnerabilities = sorted(vulnerabilities, key=lambda x: severity_order.get(x['severity'], 99))
 
               markdown = "### 🚨 Resumo de Vulnerabilidades CVE Encontradas 🚨\n\n"
               markdown += "Esta tabela lista as vulnerabilidades CVE detectadas neste Pull Request com severidade Crítica, Alta ou Média.\n\n"
-              # Linha de cabeçalho da tabela Markdown
-              markdown += "| Ferramenta | CVE ID | Severidade | Pacote | Versão Corrigida | Descrição | Localização | Link |\n"
-              # Linha de alinhamento da tabela Markdown (crucial para o GitHub renderizar a tabela)
-              markdown += "|:---|:---|:---|:---|:---|:---|:---|:---|\n"
+              # Adicionando 'Versão Vulnerável' na linha de cabeçalho
+              markdown += "| Ferramenta | CVE ID | Severidade | Pacote | Versão Vulnerável | Versão Corrigida | Descrição | Localização | Link |\n"
+              # Atualizando a linha de alinhamento para a nova coluna
+              markdown += "|:---|:---|:---|:---|:---|:---|:---|:---|:---|\n"
 
               for vul in sorted_vulnerabilities:
                   tool = vul['tool']
                   cve_id = vul['cve_id']
                   severity = vul['severity']
                   package = vul['package']
+                  vulnerable_version = vul['vulnerable_version'] # Novo campo
                   fixed_version = vul['fixed_version']
                   
                   # Escapa caracteres especiais para que não quebrem a tabela Markdown
@@ -302,17 +340,26 @@ jobs:
                   formatted_link = f"[Link]({link})" if link and link != 'N/A' else 'N/A'
 
                   # Constrói a linha da tabela com separadores '|'
-                  markdown += f"| {tool} | {cve_id} | **{severity}** | {package} | {fixed_version} | {description} | {location} | {formatted_link} |\n"
+                  markdown += f"| {tool} | {cve_id} | **{severity}** | {package} | {vulnerable_version} | {fixed_version} | {description} | {location} | {formatted_link} |\n"
 
               markdown += "\n*Observação: A severidade é baseada na classificação da ferramenta de segurança.*"
               return markdown
 
           if __name__ == "__main__":
+              sarif_artifacts_dir = 'sarif-artifacts'
+              if not os.path.exists(sarif_artifacts_dir):
+                  print(f"Diretório '{sarif_artifacts_dir}' não encontrado. Por favor, crie-o e coloque seus arquivos SARIF lá para testar.", file=sys.stderr)
+                  sys.exit(1)
+
               sarif_files_to_process = []
-              for root, _, files in os.walk('sarif-artifacts'):
+              for root, _, files in os.walk(sarif_artifacts_dir):
                   for file in files:
                       if file.endswith('.sarif'):
                           sarif_files_to_process.append(os.path.join(root, file))
+
+              if not sarif_files_to_process:
+                  print(f"Nenhum arquivo SARIF encontrado em '{sarif_artifacts_dir}'.", file=sys.stderr)
+                  sys.exit(0)
 
               all_vulnerabilities = []
               for sarif_file in sarif_files_to_process:
@@ -325,8 +372,10 @@ jobs:
 
               markdown_output = generate_markdown_table(filtered_vulnerabilities)
 
-              with open('cve_summary.md', 'w', encoding='utf-8') as f:
+              output_file = 'cve_summary.md'
+              with open(output_file, 'w', encoding='utf-8') as f:
                   f.write(markdown_output)
+              print(f"Tabela CVE gerada e salva em '{output_file}'.")
           EOF
 
       - name: Generate CVE Table Markdown
