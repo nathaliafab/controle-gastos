@@ -119,10 +119,10 @@ fi
 
 # Verificar dependências
 echo -e "${GREEN}📦 Verificando dependências...${NC}"
-if [ -f "web_interface/requirements-web.txt" ]; then
-    pip install -r web_interface/requirements-web.txt
+if [ -f "web_interface/requirements.txt" ]; then
+    pip install -r web_interface/requirements.txt
 else
-    echo -e "${YELLOW}⚠️  Arquivo requirements-web.txt não encontrado${NC}"
+    echo -e "${YELLOW}⚠️  Arquivo requirements.txt não encontrado${NC}"
 fi
 
 # Executar migrações

@@ -1,0 +1,171 @@
+name: Sarif upload workflow
+
+on:
+  push:
+    branches:
+      - main
+      - Dev
+  pull_request:
+    branches:
+      - main
+      - Dev
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  security:
+    name: Run Security Scans (Trivy + Bandit + ZAP)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit
+
+      # ---------------------- TRIVY - requirements.txt ----------------------
+      - name: Run Trivy vulnerability scanner for requirements.txt
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: 'fs'
+          scan-ref: 'requirements.txt'
+          format: 'sarif'
+          limit-severities-for-sarif: false
+          output: 'trivy-results-main.sarif' # Nome de arquivo único
+
+      - name: Upload Trivy SARIF results for requirements.txt
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results-main.sarif
+          category: 'trivy-main-requirements' # Categoria única
+
+      # ---------------------- TRIVY - web_interface/requirements.txt ----------------------
+      - name: Run Trivy vulnerability scanner for web_interface/requirements.txt
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: 'fs'
+          scan-ref: 'web_interface/requirements.txt'
+          format: 'sarif'
+          limit-severities-for-sarif: false
+          output: 'trivy-results-web.sarif' # Nome de arquivo único
+
+      - name: Upload Trivy SARIF results for web_interface/requirements.txt
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results-web.sarif
+          category: 'trivy-web-requirements' # Categoria única
+
+      # ---------------------- BANDIT ----------------------
+      - name: Run Bandit scan
+        run: |
+          bandit -r web_interface/ -f json -o bandit.json || true
+
+      - name: Convert Bandit JSON to SARIF
+        run: |
+          # Certifique-se de que este script exista e converta bandit.json para bandit-results.sarif
+          # Exemplo de conteúdo para scripts/bandit_to_sarif.py (se ainda não tiver):
+          # import json
+          # import sys
+          #
+          # def convert_bandit_to_sarif(bandit_json_path, sarif_output_path):
+          #     with open(bandit_json_path, 'r') as f:
+          #         bandit_data = json.load(f)
+          #
+          #     sarif_data = {
+          #         "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json",
+          #         "version": "2.1.0",
+          #         "runs": [
+          #             {
+          #                 "tool": {
+          #                     "driver": {
+          #                         "name": "Bandit",
+          #                         "informationUri": "https://bandit.readthedocs.io/en/latest/",
+          #                         "rules": []
+          #                     }
+          #                 },
+          #                 "results": []
+          #             }
+          #         ]
+          #     }
+          #
+          #     rules_map = {}
+          #     for result in bandit_data.get("results", []):
+          #         test_id = result.get("test_id")
+          #         issue_text = result.get("issue_text")
+          #         severity = result.get("issue_severity", "UNKNOWN").upper()
+          #         confidence = result.get("issue_confidence", "UNKNOWN").upper()
+          #         filename = result.get("filename")
+          #         lineno = result.get("line_number")
+          #         col_offset = result.get("col_offset")
+          #
+          #         if test_id not in rules_map:
+          #             rule_id = f"B{test_id}"
+          #             rules_map[test_id] = {
+          #                 "id": rule_id,
+          #                 "name": f"Bandit Rule {test_id}",
+          #                 "shortDescription": {"text": issue_text},
+          #                 "fullDescription": {"text": f"Bandit detected a potential security issue: {issue_text}"},
+          #                 "properties": {
+          #                     "tags": [f"security", f"severity/{severity.lower()}", f"confidence/{confidence.lower()}"],
+          #                     "precision": confidence.lower()
+          #                 }
+          #             }
+          #             sarif_data["runs"][0]["tool"]["driver"]["rules"].append(rules_map[test_id])
+          #
+          #         sarif_data["runs"][0]["results"].append({
+          #             "ruleId": f"B{test_id}",
+          #             "message": {"text": issue_text},
+          #             "locations": [
+          #                 {
+          #                     "physicalLocation": {
+          #                         "artifactLocation": {"uri": filename},
+          #                         "region": {
+          #                             "startLine": lineno,
+          #                             "startColumn": col_offset
+          #                         }
+          #                     }
+          #                 }
+          #             ],
+          #             "level": "error" if severity in ["HIGH", "MEDIUM"] else "note"
+          #         })
+          #
+          #     with open(sarif_output_path, 'w') as f:
+          #         json.dump(sarif_data, f, indent=2)
+          #
+          # if __name__ == "__main__":
+          #     # Assumindo que o script está em scripts/bandit_to_sarif.py
+          #     # e que bandit.json está na raiz do repositório
+          #     convert_bandit_to_sarif("bandit.json", "bandit-results.sarif")
+          python scripts/bandit_to_sarif.py
+
+      - name: Upload Bandit SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit-results.sarif
+          category: 'bandit-scan' # Categoria única para Bandit
+
+      # ---------------------- ZAP (Exemplo - Você precisará configurar o ZAP) ----------------------
+      # Para o ZAP, você precisará de uma ação separada ou de um script que execute o ZAP
+      # e gere um arquivo SARIF. Abaixo está um exemplo conceitual.
+      # - name: Run ZAP scan (Dynamic Application Security Testing)
+      #   uses: zaproxy/action@v0.7.0 # Exemplo de ação ZAP
+      #   with:
+      #     target: 'http://localhost:8080' # Substitua pela URL da sua aplicação
+      #     format: 'sarif'
+      #     output_file: 'zap-results.sarif'
+
+      # - name: Upload ZAP SARIF results
+      #   uses: github/codeql-action/upload-sarif@v3
+      #   with:
+      #     sarif_file: zap-results.sarif
+      #     category: 'zap-dast-scan' # Categoria única para ZAP

@@ -66,7 +66,7 @@ Este script irá:
 
 - Detectar automaticamente seu sistema operacional (Windows/Linux/Mac)
 - Criar um ambiente virtual Python (venv)
-- Instalar dependências da interface web (requirements-web.txt)
+- Instalar dependências da interface web (requirements.txt)
 - Criar pastas obrigatórias do projeto (logs, media, staticfiles, backups)
 - Gerar arquivo `.env` com configurações seguras para desenvolvimento
 - Executar migrações do banco de dados Django
