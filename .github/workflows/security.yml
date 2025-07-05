@@ -13,6 +13,7 @@ on:
 permissions:
   contents: read
   security-events: write
+  pull-requests: write # Necessário para o bot comentar no PR
 
 jobs:
   security:
@@ -43,11 +44,17 @@ jobs:
           limit-severities-for-sarif: false
           output: 'trivy-results-main.sarif' # Nome de arquivo único
 
-      - name: Upload Trivy SARIF results for requirements.txt
+      - name: Upload Trivy SARIF results for requirements.txt to Code Scanning
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results-main.sarif
           category: 'trivy-main-requirements' # Categoria única
+
+      - name: Upload Trivy Main SARIF Artifact
+        uses: actions/upload-artifact@v4 # Atualizado para v4
+        with:
+          name: trivy-main-sarif # Nome do artefato
+          path: trivy-results-main.sarif # Caminho do arquivo a ser upado
 
       # ---------------------- TRIVY - web_interface/requirements.txt ----------------------
       - name: Run Trivy vulnerability scanner for web_interface/requirements.txt
@@ -59,11 +66,17 @@ jobs:
           limit-severities-for-sarif: false
           output: 'trivy-results-web.sarif' # Nome de arquivo único
 
-      - name: Upload Trivy SARIF results for web_interface/requirements.txt
+      - name: Upload Trivy SARIF results for web_interface/requirements.txt to Code Scanning
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results-web.sarif
           category: 'trivy-web-requirements' # Categoria única
+
+      - name: Upload Trivy Web SARIF Artifact
+        uses: actions/upload-artifact@v4 # Atualizado para v4
+        with:
+          name: trivy-web-sarif # Nome do artefato
+          path: trivy-results-web.sarif # Caminho do arquivo a ser upado
 
       # ---------------------- BANDIT ----------------------
       - name: Run Bandit scan
@@ -72,100 +85,306 @@ jobs:
 
       - name: Convert Bandit JSON to SARIF
         run: |
-          # Certifique-se de que este script exista e converta bandit.json para bandit-results.sarif
-          # Exemplo de conteúdo para scripts/bandit_to_sarif.py (se ainda não tiver):
-          # import json
-          # import sys
-          #
-          # def convert_bandit_to_sarif(bandit_json_path, sarif_output_path):
-          #     with open(bandit_json_path, 'r') as f:
-          #         bandit_data = json.load(f)
-          #
-          #     sarif_data = {
-          #         "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json",
-          #         "version": "2.1.0",
-          #         "runs": [
-          #             {
-          #                 "tool": {
-          #                     "driver": {
-          #                         "name": "Bandit",
-          #                         "informationUri": "https://bandit.readthedocs.io/en/latest/",
-          #                         "rules": []
-          #                     }
-          #                 },
-          #                 "results": []
-          #             }
-          #         ]
-          #     }
-          #
-          #     rules_map = {}
-          #     for result in bandit_data.get("results", []):
-          #         test_id = result.get("test_id")
-          #         issue_text = result.get("issue_text")
-          #         severity = result.get("issue_severity", "UNKNOWN").upper()
-          #         confidence = result.get("issue_confidence", "UNKNOWN").upper()
-          #         filename = result.get("filename")
-          #         lineno = result.get("line_number")
-          #         col_offset = result.get("col_offset")
-          #
-          #         if test_id not in rules_map:
-          #             rule_id = f"B{test_id}"
-          #             rules_map[test_id] = {
-          #                 "id": rule_id,
-          #                 "name": f"Bandit Rule {test_id}",
-          #                 "shortDescription": {"text": issue_text},
-          #                 "fullDescription": {"text": f"Bandit detected a potential security issue: {issue_text}"},
-          #                 "properties": {
-          #                     "tags": [f"security", f"severity/{severity.lower()}", f"confidence/{confidence.lower()}"],
-          #                     "precision": confidence.lower()
-          #                 }
-          #             }
-          #             sarif_data["runs"][0]["tool"]["driver"]["rules"].append(rules_map[test_id])
-          #
-          #         sarif_data["runs"][0]["results"].append({
-          #             "ruleId": f"B{test_id}",
-          #             "message": {"text": issue_text},
-          #             "locations": [
-          #                 {
-          #                     "physicalLocation": {
-          #                         "artifactLocation": {"uri": filename},
-          #                         "region": {
-          #                             "startLine": lineno,
-          #                             "startColumn": col_offset
-          #                         }
-          #                     }
-          #                 }
-          #             ],
-          #             "level": "error" if severity in ["HIGH", "MEDIUM"] else "note"
-          #         })
-          #
-          #     with open(sarif_output_path, 'w') as f:
-          #         json.dump(sarif_data, f, indent=2)
-          #
-          # if __name__ == "__main__":
-          #     # Assumindo que o script está em scripts/bandit_to_sarif.py
-          #     # e que bandit.json está na raiz do repositório
-          #     convert_bandit_to_sarif("bandit.json", "bandit-results.sarif")
+          # Certifique-se de que o script 'scripts/bandit_to_sarif.py' existe
+          # e converte 'bandit.json' para 'bandit-results.sarif'.
+          # Um exemplo de script foi fornecido na resposta anterior.
           python scripts/bandit_to_sarif.py
 
-      - name: Upload Bandit SARIF results
+      - name: Upload Bandit SARIF results to Code Scanning
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: bandit-results.sarif
           category: 'bandit-scan' # Categoria única para Bandit
 
-      # ---------------------- ZAP (Exemplo - Você precisará configurar o ZAP) ----------------------
-      # Para o ZAP, você precisará de uma ação separada ou de um script que execute o ZAP
-      # e gere um arquivo SARIF. Abaixo está um exemplo conceitual.
-      # - name: Run ZAP scan (Dynamic Application Security Testing)
-      #   uses: zaproxy/action@v0.7.0 # Exemplo de ação ZAP
-      #   with:
-      #     target: 'http://localhost:8080' # Substitua pela URL da sua aplicação
-      #     format: 'sarif'
-      #     output_file: 'zap-results.sarif'
+      - name: Upload Bandit SARIF Artifact
+        uses: actions/upload-artifact@v4 # Atualizado para v4
+        with:
+          name: bandit-sarif # Nome do artefato
+          path: bandit-results.sarif # Caminho do arquivo a ser upado
 
-      # - name: Upload ZAP SARIF results
-      #   uses: github/codeql-action/upload-sarif@v3
-      #   with:
-      #     sarif_file: zap-results.sarif
-      #     category: 'zap-dast-scan' # Categoria única para ZAP
+  # Novo Job para comentar no Pull Request
+  cve_comment:
+    name: Comentar CVEs no PR
+    runs-on: ubuntu-latest
+    needs: security # Este job depende do job 'security' para garantir que os SARIFs sejam gerados
+    if: github.event_name == 'pull_request' # Executar apenas em eventos de Pull Request
+
+    permissions:
+      pull-requests: write # Permissão necessária para o bot comentar em PRs
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download SARIF Artifacts
+        uses: actions/download-artifact@v4 # Atualizado para v4
+        with:
+          # Com v4, os artefatos são baixados diretamente para o diretório especificado,
+          # sem subdiretórios com o nome do artefato.
+          path: sarif-artifacts
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+
+      - name: Create scripts directory
+        run: mkdir -p scripts # Garante que o diretório 'scripts' exista
+
+      - name: Create SARIF to Markdown script
+        run: |
+          # Este comando cria o arquivo Python 'generate_cve_table.py'
+          # no diretório 'scripts' com o conteúdo abaixo.
+          # Este é o código Python aprimorado para gerar a tabela corretamente.
+          cat << 'EOF' > scripts/generate_cve_table.py
+          import json
+          import os
+          import sys
+          import re # Importa o módulo de expressões regulares
+
+          def parse_sarif_file(file_path):
+              """
+              Analisa um arquivo SARIF e extrai informações de vulnerabilidades.
+
+              Args:
+                  file_path (str): O caminho para o arquivo SARIF.
+
+              Returns:
+                  list: Uma lista de dicionários, onde cada dicionário representa uma vulnerabilidade.
+              """
+              vulnerabilities = []
+              try:
+                  with open(file_path, 'r', encoding='utf-8') as f:
+                      sarif_data = json.load(f)
+
+                  for run in sarif_data.get('runs', []):
+                      tool_name = run.get('tool', {}).get('driver', {}).get('name', 'Ferramenta Desconhecida')
+                      rules = {rule.get('id'): rule for rule in run.get('tool', {}).get('driver', {}).get('rules', [])}
+
+                      for result in run.get('results', []):
+                          cve_id = None
+                          severity_level = result.get('level', 'note').upper()
+                          severity = 'UNKNOWN'
+
+                          original_description = result.get('message', {}).get('text', 'Sem descrição').strip()
+                          location = 'N/A'
+                          link = 'N/A'
+                          package = 'N/A'
+                          vulnerable_version = 'N/A' # Novo campo para a versão vulnerável
+                          fixed_version = 'N/A'
+
+                          rule_id = result.get('ruleId')
+                          if rule_id and rule_id.startswith('CVE-'):
+                              cve_id = rule_id
+                          elif 'properties' in result and 'vulnerability-id' in result['properties']:
+                              if result['properties']['vulnerability-id'].startswith('CVE-'):
+                                  cve_id = result['properties']['vulnerability-id']
+
+                          if 'properties' in result and 'security-severity' in result['properties']:
+                              try:
+                                  sec_severity = float(result['properties']['security-severity'])
+                                  if sec_severity >= 9.0:
+                                      severity = 'CRITICAL'
+                                  elif sec_severity >= 7.0:
+                                      severity = 'HIGH'
+                                  elif sec_severity >= 4.0:
+                                      severity = 'MEDIUM'
+                                  else:
+                                      severity = 'LOW'
+                              except ValueError:
+                                  pass
+
+                          if severity == 'UNKNOWN':
+                              if severity_level == 'ERROR':
+                                  severity = 'HIGH'
+                              elif severity_level == 'WARNING':
+                                  severity = 'MEDIUM'
+                              elif severity_level == 'NOTE':
+                                  severity = 'LOW'
+
+                          if 'locations' in result and result['locations']:
+                              physical_location = result['locations'][0].get('physicalLocation', {})
+                              artifact_location = physical_location.get('artifactLocation', {})
+                              uri = artifact_location.get('uri')
+                              if uri:
+                                  location = os.path.basename(uri)
+
+                          if rule_id and rule_id in rules and 'helpUri' in rules[rule_id]:
+                              link = rules[rule_id]['helpUri']
+                          if 'properties' in result and 'link' in result['properties']:
+                              link = result['properties']['link']
+                          
+                          # Tenta extrair link da descrição como fallback
+                          if "Link: [" in original_description and "](https://" in original_description:
+                              try:
+                                  link_match = re.search(r"\]\((https?://[^\s)]+)\)", original_description)
+                                  if link_match and link == 'N/A': # Só atualiza se o link ainda não foi encontrado
+                                      link = link_match.group(1)
+                              except Exception:
+                                  pass
+
+                          # --- Extração de Pacote, Versão Vulnerável e Versão Corrigida ---
+                          # Prioriza propriedades SARIF se disponíveis
+                          if 'properties' in result:
+                              if 'PkgName' in result['properties']:
+                                  package = result['properties']['PkgName']
+                              if 'FixedVersion' in result['properties']:
+                                  fixed_version = result['properties']['FixedVersion']
+                              # Trivy muitas vezes coloca a versão instalada/vulnerável em 'InstalledVersion'
+                              if 'InstalledVersion' in result['properties']:
+                                  vulnerable_version = result['properties']['InstalledVersion']
+
+                          # Fallback: Tentar extrair do texto da descrição se as propriedades não preencheram tudo
+                          # Usar regex para uma extração mais robusta
+                          if package == 'N/A' or vulnerable_version == 'N/A' or fixed_version == 'N/A':
+                              # Captura o nome do Pacote
+                              match_pkg = re.search(r"Package:\s*([^,\s]+)", original_description)
+                              if match_pkg and package == 'N/A':
+                                  package = match_pkg.group(1).strip()
+
+                              # Captura a Versão Instalada (Vulnerável)
+                              match_installed_ver = re.search(r"Installed Version:\s*([^,\s]+)", original_description)
+                              if match_installed_ver and vulnerable_version == 'N/A':
+                                  vulnerable_version = match_installed_ver.group(1).strip()
+
+                              # Captura a Versão Corrigida
+                              match_fixed_ver = re.search(r"Fixed Version:\s*([^,\s]+)", original_description)
+                              if match_fixed_ver and fixed_version == 'N/A':
+                                  fixed_version = match_fixed_ver.group(1).strip()
+                          
+                          # --- Limpeza da Descrição ---
+                          # Remove as partes de pacote/versão/severidade/CVE da descrição para evitar redundância na tabela
+                          clean_description = original_description
+                          patterns_to_remove = [
+                              r"Vulnerability\s+CVE-\d{4}-\d{5,7}\s*Severity:\s*(CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN)",
+                              r"Package:\s*[^ ]+\s*Installed Version:\s*[^ ]+",
+                              r"Fixed Version:\s*[^ ]+",
+                              r"Link:\s*\[CVE-\d{4}-\d{5,7}\]\(https?://[^\s)]+\d+\)" # Remove formato de link Trivy específico
+                          ]
+                          for pattern in patterns_to_remove:
+                              clean_description = re.sub(pattern, "", clean_description, flags=re.IGNORECASE).strip()
+                          
+                          # Remove múltiplos espaços e quebras de linha restantes
+                          clean_description = re.sub(r'\s+', ' ', clean_description).strip()
+                          
+                          # Se a descrição limpa ficar vazia, usa a original como fallback, mas tenta limpá-la minimamente
+                          if not clean_description:
+                              clean_description = original_description.replace('\n', ' ').strip()
+
+
+                          if cve_id:
+                              vulnerabilities.append({
+                                  'tool': tool_name,
+                                  'cve_id': cve_id,
+                                  'severity': severity,
+                                  'description': clean_description, # Usar a descrição limpa
+                                  'location': location,
+                                  'package': package,
+                                  'vulnerable_version': vulnerable_version, # Novo campo
+                                  'fixed_version': fixed_version,
+                                  'link': link
+                              })
+              except json.JSONDecodeError as e:
+                  print(f"Erro de decodificação JSON no arquivo SARIF {file_path}: {e}", file=sys.stderr)
+              except Exception as e:
+                  print(f"Erro ao analisar arquivo SARIF {file_path}: {e}", file=sys.stderr)
+              return vulnerabilities
+
+          def generate_markdown_table(vulnerabilities):
+              """
+              Gera uma tabela Markdown a partir de uma lista de vulnerabilidades.
+
+              Args:
+                  vulnerabilities (list): Uma lista de dicionários de vulnerabilidades.
+
+              Returns:
+                  str: A tabela formatada em Markdown.
+              """
+              if not vulnerabilities:
+                  return "🎉 Parabéns! Nenhuma vulnerabilidade CVE crítica, alta ou média foi encontrada neste Pull Request. �\n\nContinue com o bom trabalho!"
+
+              # Ordena por severidade: CRITICAL, HIGH, MEDIUM, LOW
+              severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'NOTE': 4, 'UNKNOWN': 5}
+              sorted_vulnerabilities = sorted(vulnerabilities, key=lambda x: severity_order.get(x['severity'], 99))
+
+              markdown = "### 🚨 Resumo de Vulnerabilidades CVE Encontradas 🚨\n\n"
+              markdown += "Esta tabela lista as vulnerabilidades CVE detectadas neste Pull Request com severidade Crítica, Alta ou Média.\n\n"
+              # Adicionando 'Versão Vulnerável' na linha de cabeçalho
+              markdown += "| Ferramenta | CVE ID | Severidade | Pacote | Versão Vulnerável | Versão Corrigida | Descrição | Localização | Link |\n"
+              # Atualizando a linha de alinhamento para a nova coluna
+              markdown += "|:---|:---|:---|:---|:---|:---|:---|:---|:---|\n"
+
+              for vul in sorted_vulnerabilities:
+                  tool = vul['tool']
+                  cve_id = vul['cve_id']
+                  severity = vul['severity']
+                  package = vul['package']
+                  vulnerable_version = vul['vulnerable_version'] # Novo campo
+                  fixed_version = vul['fixed_version']
+                  
+                  # Escapa caracteres especiais para que não quebrem a tabela Markdown
+                  description = vul['description'].replace('\n', ' ').replace('|', '\\|').replace('*', '\\*')
+
+                  location = vul['location'].replace('|', '\\|')
+                  link = vul['link']
+
+                  # Trunca a descrição se for muito longa para manter a tabela compacta
+                  if len(description) > 150:
+                      description = description[:147] + "..."
+
+                  # Formata o link para ser clicável no Markdown
+                  formatted_link = f"[Link]({link})" if link and link != 'N/A' else 'N/A'
+
+                  # Constrói a linha da tabela com separadores '|'
+                  markdown += f"| {tool} | {cve_id} | **{severity}** | {package} | {vulnerable_version} | {fixed_version} | {description} | {location} | {formatted_link} |\n"
+
+              markdown += "\n*Observação: A severidade é baseada na classificação da ferramenta de segurança.*"
+              return markdown
+
+          if __name__ == "__main__":
+              sarif_artifacts_dir = 'sarif-artifacts'
+              if not os.path.exists(sarif_artifacts_dir):
+                  print(f"Diretório '{sarif_artifacts_dir}' não encontrado. Por favor, crie-o e coloque seus arquivos SARIF lá para testar.", file=sys.stderr)
+                  sys.exit(1)
+
+              sarif_files_to_process = []
+              for root, _, files in os.walk(sarif_artifacts_dir):
+                  for file in files:
+                      if file.endswith('.sarif'):
+                          sarif_files_to_process.append(os.path.join(root, file))
+
+              if not sarif_files_to_process:
+                  print(f"Nenhum arquivo SARIF encontrado em '{sarif_artifacts_dir}'.", file=sys.stderr)
+                  sys.exit(0)
+
+              all_vulnerabilities = []
+              for sarif_file in sarif_files_to_process:
+                  all_vulnerabilities.extend(parse_sarif_file(sarif_file))
+
+              filtered_vulnerabilities = [
+                  v for v in all_vulnerabilities
+                  if v['severity'] in ['CRITICAL', 'HIGH', 'MEDIUM']
+              ]
+
+              markdown_output = generate_markdown_table(filtered_vulnerabilities)
+
+              output_file = 'cve_summary.md'
+              with open(output_file, 'w', encoding='utf-8') as f:
+                  f.write(markdown_output)
+              print(f"Tabela CVE gerada e salva em '{output_file}'.")
+          EOF
+
+      - name: Generate CVE Table Markdown
+        run: python scripts/generate_cve_table.py
+
+      - name: Create or Update PR Comment
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body-path: cve_summary.md
+          comment-id: 'cve-summary-comment'
+          update-mode: replace

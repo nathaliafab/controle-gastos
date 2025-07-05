@@ -1,8 +1,8 @@
 # ===== DEPENDÊNCIAS DJANGO =====
-Django==5.0.6
+Django==5.0.10
 whitenoise==6.7.0
 python-decouple==3.8
-gunicorn==22.0.0
+gunicorn==23.0.0
 dj-database-url==2.1.0
 
 # ===== DEPENDÊNCIAS DE SEGURANÇA =====
