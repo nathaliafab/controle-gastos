@@ -52,22 +52,10 @@ chmod 755 backups
 # Gerar .env para desenvolvimento se não existir
 if [ ! -f .env ]; then
     echo -e "${GREEN}🔑 Gerando configurações para desenvolvimento...${NC}"
-    
     # Gerar SECRET_KEY
-    SECRET_KEY=$(python3 -c "
-import secrets
-import string
-alphabet = string.ascii_letters + string.digits + '!@#$%^&*()-_=+[]{}|;:,.<>?'
-secret_key = ''.join(secrets.choice(alphabet) for _ in range(64))
-")
-    
+    SECRET_KEY=$($PYTHON_CMD -c "import secrets; import string; alphabet = string.ascii_letters + string.digits + '!@#$%^&*()-_=+[]{}|;:,.<>?'; print(''.join(secrets.choice(alphabet) for _ in range(64)))")
     # Gerar ENCRYPTION_KEY
-    ENCRYPTION_KEY=$(python3 -c "
-import secrets
-import string
-alphabet = string.ascii_letters + string.digits
-encryption_key = ''.join(secrets.choice(alphabet) for _ in range(32))
-")
+    ENCRYPTION_KEY=$($PYTHON_CMD -c "import secrets; import string; alphabet = string.ascii_letters + string.digits; print(''.join(secrets.choice(alphabet) for _ in range(32)))")
     
     # Criar arquivo .env para DESENVOLVIMENTO
     cat > .env << EOF

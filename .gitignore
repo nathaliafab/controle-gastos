@@ -23,7 +23,7 @@ __pycache__/
 *.so
 
 # Media
-web_interface/media/
+media/
 
 
 # Virtual environments

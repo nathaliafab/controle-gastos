@@ -66,6 +66,7 @@ Este script irá:
 
 - Detectar automaticamente seu sistema operacional (Windows/Linux/Mac)
 - Criar um ambiente virtual Python (venv)
+- Ativar o ambiente virtual Python (venv)
 - Instalar dependências da interface web (requirements.txt)
 - Criar pastas obrigatórias do projeto (logs, media, staticfiles, backups)
 - Gerar arquivo `.env` com configurações seguras para desenvolvimento
@@ -78,11 +79,6 @@ Este script irá:
 Em seguida, você pode executar o sistema web:
 
 ```bash
-# Ativar ambiente virtual (se não estiver ativo)
-source venv/bin/activate  # Linux/Mac
-# ou
-venv\Scripts\activate     # Windows
-
 # Executar o sistema
 python3 main.py
 ```
