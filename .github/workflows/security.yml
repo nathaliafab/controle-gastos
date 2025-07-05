@@ -306,7 +306,7 @@ jobs:
               # Escreve para um arquivo que a ação 'peter-evans/create-or-update-comment' pode ler.
               with open('cve_summary.md', 'w') as f:
                   f.write(markdown_output)
-EOF
+              EOF
 
       - name: Generate CVE Table Markdown
         run: python scripts/generate_cve_table.py
