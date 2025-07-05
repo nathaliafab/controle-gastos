@@ -52,7 +52,7 @@ jobs:
           category: 'trivy-main-requirements' # Categoria única
 
       - name: Upload Trivy Main SARIF Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 # Atualizado para v4
         with:
           name: trivy-main-sarif # Nome do artefato
           path: trivy-results-main.sarif # Caminho do arquivo a ser upado
@@ -74,7 +74,7 @@ jobs:
           category: 'trivy-web-requirements' # Categoria única
 
       - name: Upload Trivy Web SARIF Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 # Atualizado para v4
         with:
           name: trivy-web-sarif # Nome do artefato
           path: trivy-results-web.sarif # Caminho do arquivo a ser upado
@@ -98,7 +98,7 @@ jobs:
           category: 'bandit-scan' # Categoria única para Bandit
 
       - name: Upload Bandit SARIF Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 # Atualizado para v4
         with:
           name: bandit-sarif # Nome do artefato
           path: bandit-results.sarif # Caminho do arquivo a ser upado
@@ -118,9 +118,11 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Download SARIF Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4 # Atualizado para v4
         with:
-          path: sarif-artifacts # Baixa todos os artefatos para este diretório
+          # Com v4, os artefatos são baixados diretamente para o diretório especificado,
+          # sem subdiretórios com o nome do artefato.
+          path: sarif-artifacts
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -195,17 +197,12 @@ jobs:
                               artifact_location = physical_location.get('artifactLocation', {})
                               uri = artifact_location.get('uri')
                               if uri:
-                                  # Ajusta o caminho se baixado para um subdiretório por download-artifact
-                                  # Ex: 'sarif-artifacts/trivy-main-sarif/requirements.txt' -> 'requirements.txt'
-                                  location = uri.replace('sarif-artifacts/', '')
-                                  # Remove o nome do artefato do caminho, ex: trivy-main-sarif/requirements.txt -> requirements.txt
-                                  # Isso é necessário porque download-artifact cria subdiretórios com o nome do artefato
-                                  if 'trivy-main-sarif/' in location:
-                                      location = location.replace('trivy-main-sarif/', '')
-                                  elif 'trivy-web-sarif/' in location:
-                                      location = location.replace('trivy-web-sarif/', '')
-                                  elif 'bandit-sarif/' in location:
-                                      location = location.replace('bandit-sarif/', '')
+                                  # Com a v4 do download-artifact, os arquivos são baixados diretamente
+                                  # para o diretório 'sarif-artifacts', sem subdiretórios com o nome do artefato.
+                                  # Então, o caminho será 'sarif-artifacts/trivy-results-main.sarif'
+                                  # ou 'sarif-artifacts/trivy-results-web.sarif', etc.
+                                  # Precisamos apenas do nome do arquivo SARIF no final.
+                                  location = os.path.basename(uri)
 
 
                           # Extrai o link (geralmente de rule.helpUri ou propriedades)
@@ -309,7 +306,7 @@ jobs:
               # Escreve para um arquivo que a ação 'peter-evans/create-or-update-comment' pode ler.
               with open('cve_summary.md', 'w') as f:
                   f.write(markdown_output)
-                  EOF
+EOF
 
       - name: Generate CVE Table Markdown
         run: python scripts/generate_cve_table.py
