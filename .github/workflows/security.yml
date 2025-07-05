@@ -1,0 +1,100 @@
+name: Sarif upload workflow
+
+on:
+  push:
+    branches:
+      - main
+      - Dev
+  pull_request:
+    branches:
+      - main
+      - Dev
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  security:
+    name: Run Security Scans (Trivy + Bandit + ZAP)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r web_interface/requirements-web.txt
+          pip install bandit
+
+      # ---------------------- TRIVY ----------------------
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: 'fs'
+          scan-ref: 'requirements.txt'
+          format: 'sarif'
+          limit-severities-for-sarif: false
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+      # ---------------------- TRIVY ----------------------
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: 'fs'
+          scan-ref: 'web_interface/requirements-web.txt'
+          format: 'sarif'
+          limit-severities-for-sarif: false
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+      # ---------------------- BANDIT ----------------------
+      - name: Run Bandit scan
+        run: |
+          bandit -r web_interface/ -f json -o bandit.json || true
+
+      - name: Convert Bandit JSON to SARIF
+        run: |
+          python scripts/bandit_to_sarif.py
+
+      - name: Upload Bandit SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit-results.sarif
+
+      # ---------------------- OWASP ZAP ----------------------
+      - name: Run Django migrations
+        run: python manage.py migrate
+
+      - name: Start Django development server
+        run: |
+          export SECRET_KEY="${{ secrets.secret }}"
+          nohup python web_interface/manage.py runserver 0.0.0.0:8000 &
+
+      - name: Wait for server to be ready
+        run: sleep 10
+
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.7.0
+        with:
+          target: "http://127.0.0.1:8000"
+        continue-on-error: true
+
+      - name: Stop Django development server
+        run: pkill -f "web_interface/manage.py runserver"
