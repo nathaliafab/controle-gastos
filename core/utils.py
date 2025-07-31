@@ -195,8 +195,10 @@ def calcular_saldos(df: pd.DataFrame, config: dict) -> pd.DataFrame:
         categoria = transacao['Categoria_Auto']
         
         eh_cartao_credito = categoria == 'Cartão Crédito'
+        eh_transferencia_propria = categoria == 'Transferência Própria'
         
-        if not eh_cartao_credito:
+        # Não alterar saldos para transferências próprias
+        if not eh_cartao_credito and not eh_transferencia_propria:
             if banco == 'Banco do Brasil':
                 saldo_bb += valor
             elif banco == 'Bradesco':
@@ -209,8 +211,9 @@ def calcular_saldos(df: pd.DataFrame, config: dict) -> pd.DataFrame:
         saldo_no_banco_atual = saldo_bb + saldo_bradesco + saldo_c6 + saldo_itau
         saldos_no_banco.append(saldo_no_banco_atual)
         
-        # Saldo real: considera TODAS as transações (incluindo cartão de crédito)
-        saldo_real += valor
+        # Saldo real: considera TODAS as transações (incluindo cartão de crédito), exceto transferências próprias
+        if not eh_transferencia_propria:
+            saldo_real += valor
         saldos_reais.append(saldo_real)
     
     # Adicionar as colunas ao DataFrame

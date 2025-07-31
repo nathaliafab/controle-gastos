@@ -31,8 +31,8 @@ def processar(config: dict) -> pd.DataFrame:
         # Extrair saldo anterior antes de filtrar
         _extrair_saldo_anterior(df, config)
         
-        # Filtrar removendo saldo anterior
-        df = df[~df['Histórico'].astype(str).str.contains('SALDO ANTERIOR', na=False)]
+        # Filtrar removendo saldo anterior e COD. LANC. 0
+        df = df[~df['Histórico'].astype(str).str.contains('SALDO ANTERIOR|COD\. LANC\. 0', na=False, regex=True)]
         
         # Processar valores
         df['credito'] = df['Crédito (R$)'].apply(converter_valor_br).fillna(0)
@@ -74,7 +74,8 @@ def processar(config: dict) -> pd.DataFrame:
 
 def _extrair_saldo_anterior(df: pd.DataFrame, config: dict) -> None:
     try:
-        saldo_anterior_linhas = df[df['Histórico'].astype(str).str.contains('SALDO ANTERIOR', na=False)]
+        # Procurar por "SALDO ANTERIOR" ou "COD. LANC. 0"
+        saldo_anterior_linhas = df[df['Histórico'].astype(str).str.contains('SALDO ANTERIOR|COD\. LANC\. 0', na=False, regex=True)]
         if not saldo_anterior_linhas.empty:
             primeira_linha = saldo_anterior_linhas.iloc[0]
             saldo_anterior_bradesco = converter_valor_br(primeira_linha['Saldo (R$)']) or 0

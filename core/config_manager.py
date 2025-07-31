@@ -41,6 +41,7 @@ Exemplos de uso:
   python3 main.py --bb                     # Apenas Banco do Brasil
   python3 main.py --bb-cartao              # Apenas cartão BB
   python3 main.py --itau                   # Apenas Itaú
+  python3 main.py --b3                     # Apenas B3 (investimentos)
   python3 main.py --c6 --bradesco          # C6 Bank + Bradesco
   python3 main.py --bb --bb-cartao         # BB conta corrente + cartão
   python3 main.py --itau --c6              # Itaú + C6 Bank
@@ -72,6 +73,10 @@ Exemplos de uso:
                        action='store_true',
                        help='Processar extrato do Itaú')
     
+    parser.add_argument('--b3', 
+                       action='store_true',
+                       help='Processar relatório da B3 (investimentos)')
+    
     parser.add_argument('--output', 
                        type=str,
                        help='Nome do arquivo de saída (padrão do config.json)')
@@ -80,7 +85,7 @@ Exemplos de uso:
 
 
 def validar_argumentos(args):
-    if not args.all and not any([args.c6, args.bradesco, args.bb, args.bb_cartao, args.itau]):
+    if not args.all and not any([args.c6, args.bradesco, args.bb, args.bb_cartao, args.itau, args.b3]):
         logger.error("Erro: Você deve especificar --all ou pelo menos um banco específico")
         logger.info("💡 Use --help para ver os exemplos de uso")
         return False

@@ -3,11 +3,15 @@ Processador principal de extratos bancários - orquestração do processamento.
 """
 
 import pandas as pd
+import warnings
 from pathlib import Path
 from bancos import PROCESSADORES, MAPEAMENTO_ARQUIVOS, NOMES_BANCOS
 from utils import calcular_saldos, detectar_transferencias_proprias, gerar_relatorio, gerar_nome_arquivo_timestamped
 from config_manager import COLUNAS_PADRONIZADAS
 from logger import get_logger
+
+# Suprimir warnings do openpyxl
+warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
 logger = get_logger(__name__)
 
@@ -151,6 +155,20 @@ def exportar_excel(df_consolidado, arquivo_output):
 
 
 def processar_extratos(args, config):
+    # Verificar se é processamento apenas da B3
+    if args.b3 and not any([args.c6, args.bradesco, args.bb, args.bb_cartao, args.itau, args.all]):
+        logger.info("🏦 PROCESSANDO APENAS B3 (INVESTIMENTOS)")
+        df_b3 = processar_b3(config)
+        if df_b3 is not None and not df_b3.empty:
+            arquivo_output = args.output if args.output else gerar_nome_arquivo_timestamped(config['arquivos']['output'])
+            exportar_b3_excel(df_b3, arquivo_output.replace('.xlsx', '_b3.xlsx'))
+            logger.info("✅ PROCESSAMENTO B3 CONCLUÍDO COM SUCESSO!")
+            return True
+        else:
+            logger.error("❌ Falha ao processar B3")
+            return False
+    
+    # Processamento normal dos bancos
     bancos_para_processar = determinar_bancos_processar(args)
     
     logger.info("🏦 PROCESSADOR DE EXTRATOS BANCÁRIOS")
@@ -181,17 +199,78 @@ def processar_extratos(args, config):
     if df_consolidado is None:
         return False
     
+    # Detectar transferências próprias antes de calcular saldos
+    detectar_transferencias_proprias(df_consolidado, config)
+    
     logger.info(f"🧮 Calculando saldos...")
     df_consolidado = calcular_saldos(df_consolidado, config)
-    detectar_transferencias_proprias(df_consolidado, config)
     
     df_consolidado = df_consolidado[COLUNAS_PADRONIZADAS]
     
     arquivo_output = args.output if args.output else gerar_nome_arquivo_timestamped(config['arquivos']['output'])
     exportar_excel(df_consolidado, arquivo_output)
     
+    # Processar B3 separadamente se solicitado
+    if args.b3 or args.all:
+        df_b3 = processar_b3(config)
+        if df_b3 is not None and not df_b3.empty:
+            exportar_b3_excel(df_b3, arquivo_output.replace('.xlsx', '_b3.xlsx'))
+    
     gerar_relatorio(df_consolidado)
     
     logger.info("✅ PROCESSAMENTO CONCLUÍDO COM SUCESSO!")
     
     return True
+
+
+def processar_b3(config):
+    """
+    Processa relatório da B3 separadamente dos extratos bancários
+    
+    Args:
+        config: Configurações do sistema
+        
+    Returns:
+        DataFrame com posições da B3 ou None se houver erro
+    """
+    logger.info("📊 Processando B3...")
+    
+    try:
+        # Importar o processador da B3
+        from bancos.b3 import processar as processar_b3_func
+        
+        # Verificar se arquivo existe
+        arquivo_b3 = config['arquivos'].get('b3')
+        if not arquivo_b3:
+            logger.warning("Arquivo da B3 não configurado")
+            return None
+            
+        if not Path(arquivo_b3).exists():
+            logger.warning(f"Arquivo da B3 não encontrado: {arquivo_b3}")
+            return None
+        
+        # Processar
+        df_b3 = processar_b3_func(config)
+        
+        if df_b3.empty:
+            logger.warning("Nenhuma posição encontrada na B3")
+            return None
+        
+        logger.info(f"✅ B3 processada: {len(df_b3)} posições")
+        return df_b3
+        
+    except Exception as e:
+        logger.error(f"Erro ao processar B3: {e}")
+        return None
+
+
+def exportar_b3_excel(df_b3, arquivo_output):
+    """Exporta dados da B3 para Excel"""
+    logger.info(f"📄 Gerando planilha Excel da B3...")
+    try:
+        df_b3.to_excel(arquivo_output, index=False)
+        logger.info(f"✅ Arquivo B3 criado: {arquivo_output}")
+        return True
+    except Exception as e:
+        logger.error(f"Erro ao salvar Excel da B3: {e}")
+        return False
