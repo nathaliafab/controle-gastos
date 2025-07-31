@@ -146,7 +146,21 @@ def consolidar_dados(dfs):
 def exportar_excel(df_consolidado, arquivo_output):
     logger.info(f"📄 Gerando planilha Excel...")
     try:
-        df_consolidado.to_excel(arquivo_output, index=False)
+        # Criar uma cópia do DataFrame para formatação
+        df_formatado = df_consolidado.copy()
+        
+        # Colunas numéricas que devem ser formatadas
+        colunas_numericas = ['Valor', 'Valor_Entrada', 'Valor_Saida', 'Saldo_Real', 'Saldo_no_Banco']
+        
+        # Formatar valores numéricos para o padrão brasileiro (sem ponto de milhar)
+        for coluna in colunas_numericas:
+            if coluna in df_formatado.columns:
+                df_formatado[coluna] = df_formatado[coluna].apply(
+                    lambda x: f"{x:.2f}".replace('.', ',') 
+                    if pd.notnull(x) and isinstance(x, (int, float)) else x
+                )
+        
+        df_formatado.to_excel(arquivo_output, index=False)
         logger.info(f"✅ Arquivo criado com sucesso!")
         return True
     except Exception as e:
@@ -268,7 +282,21 @@ def exportar_b3_excel(df_b3, arquivo_output):
     """Exporta dados da B3 para Excel"""
     logger.info(f"📄 Gerando planilha Excel da B3...")
     try:
-        df_b3.to_excel(arquivo_output, index=False)
+        # Criar uma cópia do DataFrame para formatação
+        df_formatado = df_b3.copy()
+        
+        # Colunas numéricas que podem existir na B3
+        colunas_numericas = ['Valor', 'Preco', 'Quantidade', 'Total', 'Valor_Mercado', 'Ganho_Perda']
+        
+        # Formatar valores numéricos para o padrão brasileiro (sem ponto de milhar)
+        for coluna in colunas_numericas:
+            if coluna in df_formatado.columns:
+                df_formatado[coluna] = df_formatado[coluna].apply(
+                    lambda x: f"{x:.2f}".replace('.', ',') 
+                    if pd.notnull(x) and isinstance(x, (int, float)) else x
+                )
+        
+        df_formatado.to_excel(arquivo_output, index=False)
         logger.info(f"✅ Arquivo B3 criado: {arquivo_output}")
         return True
     except Exception as e:
