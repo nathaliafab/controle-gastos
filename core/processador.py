@@ -61,12 +61,14 @@ def verificar_e_filtrar_bancos(bancos_para_processar, config):
 
 def determinar_bancos_processar(args):
     if args.all:
-        bancos_para_processar = ['c6', 'bradesco', 'bb', 'bb_cartao', 'itau']
+        bancos_para_processar = ['c6', 'c6_cartao', 'bradesco', 'bb', 'bb_cartao', 'itau']
         logger.info("Modo: TODOS OS BANCOS")
     else:
         bancos_para_processar = []
         if args.c6:
             bancos_para_processar.append('c6')
+        if args.c6_cartao:
+            bancos_para_processar.append('c6_cartao')
         if args.bradesco:
             bancos_para_processar.append('bradesco')
         if args.bb:
@@ -170,7 +172,7 @@ def exportar_excel(df_consolidado, arquivo_output):
 
 def processar_extratos(args, config):
     # Verificar se é processamento apenas da B3
-    if args.b3 and not any([args.c6, args.bradesco, args.bb, args.bb_cartao, args.itau, args.all]):
+    if args.b3 and not any([args.c6, args.c6_cartao, args.bradesco, args.bb, args.bb_cartao, args.itau, args.all]):
         logger.info("🏦 PROCESSANDO APENAS B3 (INVESTIMENTOS)")
         df_b3 = processar_b3(config)
         if df_b3 is not None and not df_b3.empty:
@@ -286,7 +288,8 @@ def exportar_b3_excel(df_b3, arquivo_output):
         df_formatado = df_b3.copy()
         
         # Colunas numéricas que podem existir na B3
-        colunas_numericas = ['Valor', 'Preco', 'Quantidade', 'Total', 'Valor_Mercado', 'Ganho_Perda']
+        colunas_numericas = ['Valor', 'Preco', 'Quantidade', 'Total', 'Valor_Mercado', 'Ganho_Perda', 
+                           'Preço de Fechamento', 'Valor Atual', 'Valor Investido']
         
         # Formatar valores numéricos para o padrão brasileiro (sem ponto de milhar)
         for coluna in colunas_numericas:

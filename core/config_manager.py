@@ -36,13 +36,14 @@ def configurar_argumentos():
         epilog="""
 Exemplos de uso:
   python3 main.py --all                    # Processar todos os bancos
-  python3 main.py --c6                     # Apenas C6 Bank
+  python3 main.py --c6                     # Apenas C6 Bank conta
+  python3 main.py --c6-cartao              # Apenas C6 cartão
   python3 main.py --bradesco               # Apenas Bradesco
   python3 main.py --bb                     # Apenas Banco do Brasil
   python3 main.py --bb-cartao              # Apenas cartão BB
   python3 main.py --itau                   # Apenas Itaú
   python3 main.py --b3                     # Apenas B3 (investimentos)
-  python3 main.py --c6 --bradesco          # C6 Bank + Bradesco
+  python3 main.py --c6 --c6-cartao         # C6 Bank conta + cartão
   python3 main.py --bb --bb-cartao         # BB conta corrente + cartão
   python3 main.py --itau --c6              # Itaú + C6 Bank
   python3 main.py --help                   # Mostrar esta ajuda
@@ -56,6 +57,10 @@ Exemplos de uso:
     parser.add_argument('--c6', 
                        action='store_true',
                        help='Processar extrato do C6 Bank')
+    
+    parser.add_argument('--c6-cartao', 
+                       action='store_true',
+                       help='Processar fatura do cartão C6')
     
     parser.add_argument('--bradesco', 
                        action='store_true',
@@ -85,7 +90,7 @@ Exemplos de uso:
 
 
 def validar_argumentos(args):
-    if not args.all and not any([args.c6, args.bradesco, args.bb, args.bb_cartao, args.itau, args.b3]):
+    if not args.all and not any([args.c6, args.c6_cartao, args.bradesco, args.bb, args.bb_cartao, args.itau, args.b3]):
         logger.error("Erro: Você deve especificar --all ou pelo menos um banco específico")
         logger.info("💡 Use --help para ver os exemplos de uso")
         return False
