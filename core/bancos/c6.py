@@ -73,6 +73,12 @@ def processar(config: dict) -> pd.DataFrame:
         df['saida_num'] = pd.to_numeric(df['Saída(R$)'].fillna(0), errors='coerce')
         df['valor'] = df['entrada_num'] - df['saida_num']
         
+        # Ajustar pagamentos de fatura do cartão
+        mask_pagto_fatura = df['Título'].astype(str).str.contains('PGTO FAT CARTAO', na=False, case=False)
+        df.loc[mask_pagto_fatura, 'entrada_num'] = df.loc[mask_pagto_fatura, 'saida_num']
+        df.loc[mask_pagto_fatura, 'saida_num'] = 0.0
+        df.loc[mask_pagto_fatura, 'valor'] = df.loc[mask_pagto_fatura, 'entrada_num']
+        
         data_dict = {
             'Data': pd.to_datetime(df['Data Lançamento'], dayfirst=True, errors='coerce'),
             'Data_Contabil': pd.to_datetime(df['Data Contábil'], dayfirst=True, errors='coerce'),
@@ -89,7 +95,7 @@ def processar(config: dict) -> pd.DataFrame:
         
         resultado = resultado.dropna(subset=['Data'])
         resultado['Categoria_Auto'] = resultado.apply(
-            lambda row: categorizar_transacao_auto(
+            lambda row: _categorizar_c6(
                 row['Tipo_Transacao'], 
                 row['Descricao'], 
                 row['Valor'], 
@@ -103,3 +109,15 @@ def processar(config: dict) -> pd.DataFrame:
     except Exception as e:
         logger.error(f"Erro: {e}")
         return pd.DataFrame()
+
+
+def _categorizar_c6(tipo: str, descricao: str, valor: float, categorias: dict) -> str:
+    """Categorização específica para o C6 Bank"""
+    
+    # Verificar se é pagamento de fatura do cartão
+    texto_completo = f"{str(tipo).upper()} {str(descricao).upper()}"
+    if 'PGTO FAT CARTAO' in texto_completo or 'FATURA DE CARTAO' in texto_completo:
+        return 'Cartão Crédito'
+    
+    # Para outros casos, usar a categorização padrão
+    return categorizar_transacao_auto(tipo, descricao, valor, categorias)
