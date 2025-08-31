@@ -66,8 +66,8 @@ class ProcessamentoExtratoForm(forms.ModelForm):
         model = ProcessamentoExtrato
         fields = [
             'nome_usuario',
-            'usar_c6', 'usar_bradesco', 'usar_bb', 'usar_bb_cartao', 'usar_itau',
-            'arquivo_c6', 'arquivo_bradesco', 'arquivo_config',
+            'usar_c6', 'usar_c6_cartao', 'usar_bradesco', 'usar_bb', 'usar_bb_cartao', 'usar_itau',
+            'arquivo_c6', 'arquivo_c6_cartao', 'arquivo_bradesco', 'arquivo_config',
             'saldo_inicial_c6', 'saldo_inicial_bradesco', 'saldo_inicial_bb', 'saldo_inicial_itau'
         ]
         widgets = {
@@ -77,6 +77,7 @@ class ProcessamentoExtratoForm(forms.ModelForm):
                 'maxlength': '50'
             }),
             'usar_c6': forms.CheckboxInput(attrs={'class': FORM_CHECK_CLASS}),
+            'usar_c6_cartao': forms.CheckboxInput(attrs={'class': FORM_CHECK_CLASS}),
             'usar_bradesco': forms.CheckboxInput(attrs={'class': FORM_CHECK_CLASS}),
             'usar_bb': forms.CheckboxInput(attrs={'class': FORM_CHECK_CLASS}),
             'usar_bb_cartao': forms.CheckboxInput(attrs={'class': FORM_CHECK_CLASS}),
@@ -207,6 +208,7 @@ class ProcessamentoExtratoForm(forms.ModelForm):
         # Verificar se pelo menos um banco foi selecionado
         bancos_selecionados = any([
             cleaned_data.get('usar_c6'),
+            cleaned_data.get('usar_c6_cartao'),
             cleaned_data.get('usar_bradesco'),
             cleaned_data.get('usar_bb'),
             cleaned_data.get('usar_bb_cartao'),
@@ -218,6 +220,7 @@ class ProcessamentoExtratoForm(forms.ModelForm):
         
         # Validar arquivos únicos e saldos
         self._validar_banco_unico('c6', cleaned_data)
+        self._validar_banco_unico('c6_cartao', cleaned_data)
         self._validar_banco_unico('bradesco', cleaned_data)
         
         # Definir saldos padrão para bancos de múltiplos arquivos
@@ -307,6 +310,7 @@ class ProcessamentoExtratoForm(forms.ModelForm):
             # Mapear bancos do JSON para campos do formulário
             banco_mapping = {
                 'c6_bank': 'usar_c6',
+                'c6_cartao': 'usar_c6_cartao',
                 'bradesco': 'usar_bradesco', 
                 'bb': 'usar_bb',
                 'bb_cartao': 'usar_bb_cartao',

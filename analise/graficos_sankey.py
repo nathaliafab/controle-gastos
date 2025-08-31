@@ -502,8 +502,22 @@ def analisar_gastos_sankey_proventos_detalhados(nome_arquivo_excel="controle_gas
     try:
         df = pd.read_excel(nome_arquivo_excel)
         
-        # Conversão de tipos
-        df['Valor'] = pd.to_numeric(df['Valor'].fillna(0))
+        # Conversão de tipos - tratar formato brasileiro de números
+        def converter_valor_brasileiro(valor):
+            """Converte valores em formato brasileiro (vírgula decimal) para float"""
+            if pd.isna(valor):
+                return 0.0
+            if isinstance(valor, (int, float)):
+                return float(valor)
+            # Se for string, substituir vírgula por ponto
+            valor_str = str(valor).replace(',', '.')
+            try:
+                return float(valor_str)
+            except ValueError:
+                return 0.0
+        
+        df['Valor'] = df['Valor'].apply(converter_valor_brasileiro)
+        
         for col in ['Banco', 'Tipo_Transacao', 'Descricao', 'Categoria_Auto', 'Categoria']:
             df[col] = df[col].astype(str)
         

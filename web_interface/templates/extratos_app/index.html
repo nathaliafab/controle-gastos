@@ -203,6 +203,24 @@
                                     </div>
                                 </div>
 
+                                <!-- C6 Cartão -->
+                                <div class="col-md-6 col-lg-4 mb-4">
+                                    <div class="modern-bank-card" data-bank="c6_cartao" data-bs-toggle="modal" data-bs-target="#modalC6Cartao">
+                                        <div class="bank-icon c6_cartao">
+                                            <i class="fas fa-credit-card"></i>
+                                        </div>
+                                        <div class="bank-info">
+                                            <h5 class="bank-name">C6 Cartão</h5>
+                                            <p class="bank-desc">Cartão de Crédito</p>
+                                            <span class="bank-files">1 arquivo CSV</span>
+                                        </div>
+                                        <div class="bank-status" id="status-c6_cartao">
+                                            <i class="fas fa-plus-circle"></i>
+                                        </div>
+                                        {{ form.usar_c6_cartao }}
+                                    </div>
+                                </div>
+
                                 <!-- Bradesco -->
                                 <div class="col-md-6 col-lg-4 mb-4">
                                     <div class="modern-bank-card" data-bank="bradesco" data-bs-toggle="modal" data-bs-target="#modalBradesco">
@@ -342,6 +360,43 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" onclick="configureBank('c6')" data-bs-dismiss="modal">Configurar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal C6 Cartão -->
+<div class="modal fade" id="modalC6Cartao" tabindex="-1" aria-labelledby="modalC6CartaoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalC6CartaoLabel">
+                    <i class="fas fa-credit-card me-2 text-dark"></i>
+                    Configurar C6 Cartão
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-12">
+                        <label class="form-label fw-semibold mb-3">
+                            <i class="fas fa-file-csv me-2"></i>
+                            Arquivo da Fatura
+                        </label>
+                        <div class="file-input-group-modal">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="flex-grow-1">
+                                    {{ form.arquivo_c6_cartao }}
+                                </div>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">Formatos aceitos: CSV (fatura do cartão C6)</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="configureBank('c6_cartao')" data-bs-dismiss="modal">Configurar</button>
             </div>
         </div>
     </div>
@@ -1194,8 +1249,14 @@ function configureBank(bank) {
 function validateBankFiles(bank) {
     let hasFiles = false;
     
-    if (bank === 'c6' || bank === 'bradesco') {
-        const fileInput = document.querySelector(`#modal${capitalizeFirst(bank)} input[type="file"]`);
+    if (bank === 'c6' || bank === 'c6_cartao' || bank === 'bradesco') {
+        let modalId;
+        if (bank === 'c6_cartao') {
+            modalId = '#modalC6Cartao';
+        } else {
+            modalId = `#modal${capitalizeFirst(bank)}`;
+        }
+        const fileInput = document.querySelector(`${modalId} input[type="file"]`);
         if (fileInput && fileInput.files.length > 0) {
             hasFiles = true;
         }
@@ -1215,6 +1276,7 @@ function validateBankFiles(bank) {
     if (!hasFiles) {
         const bankNames = {
             'c6': 'C6 Bank',
+            'c6_cartao': 'C6 Cartão',
             'bradesco': 'Bradesco',
             'bb': 'Banco do Brasil',
             'bb_cartao': 'BB Cartão',
@@ -1365,6 +1427,7 @@ function capitalizeFirst(str) {
 function showBankConfiguredMessage(bank) {
     const bankNames = {
         'c6': 'C6 Bank',
+        'c6_cartao': 'C6 Cartão',
         'bradesco': 'Bradesco',
         'bb': 'Banco do Brasil',
         'bb_cartao': 'BB Cartão',

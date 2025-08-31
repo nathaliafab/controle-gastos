@@ -295,18 +295,22 @@ def _criar_args_processamento(processamento, config):
                 # Se há arquivo config, usar todos os bancos que têm arquivos
                 self.all = True
                 self.c6 = 'c6_bank' in config.get("arquivos", {})
+                self.c6_cartao = 'c6_cartao' in config.get("arquivos", {})
                 self.bradesco = 'bradesco' in config.get("arquivos", {})
                 self.bb = 'bb' in config.get("arquivos", {})
                 self.bb_cartao = 'bb_cartao' in config.get("arquivos", {})
                 self.itau = 'itau' in config.get("arquivos", {})
+                self.b3 = 'b3' in config.get("arquivos", {})
             else:
                 # Se é configuração manual, usar bancos selecionados
                 self.all = False
                 self.c6 = processamento.usar_c6
+                self.c6_cartao = processamento.usar_c6_cartao
                 self.bradesco = processamento.usar_bradesco
                 self.bb = processamento.usar_bb
                 self.bb_cartao = processamento.usar_bb_cartao
                 self.itau = processamento.usar_itau
+                self.b3 = False  # B3 não está disponível na interface manual
             
             self.output = None  # Usar output do config.json
     
@@ -446,6 +450,10 @@ def _configurar_bancos_selecionados(processamento, config, temp_path):
         config["arquivos"]["c6_bank"] = str(temp_path / "extratos" / nome_arquivo)
         config["saldos_iniciais"]["c6_bank"] = float(processamento.saldo_inicial_c6)
     
+    if processamento.usar_c6_cartao:
+        nome_arquivo = "c6_cartao_extrato.csv"
+        config["arquivos"]["c6_cartao"] = str(temp_path / "extratos" / nome_arquivo)
+    
     if processamento.usar_bradesco:
         nome_arquivo = "bradesco_extrato.csv"
         config["arquivos"]["bradesco"] = str(temp_path / "extratos" / nome_arquivo)
@@ -529,6 +537,9 @@ def _copiar_arquivos_manuais(processamento, extratos_dir):
     # Copiar arquivos únicos
     if processamento.arquivo_c6:
         shutil.copy2(processamento.arquivo_c6.path, extratos_dir / "c6_extrato.csv")
+    
+    if processamento.arquivo_c6_cartao:
+        shutil.copy2(processamento.arquivo_c6_cartao.path, extratos_dir / "c6_cartao_extrato.csv")
     
     if processamento.arquivo_bradesco:
         shutil.copy2(processamento.arquivo_bradesco.path, extratos_dir / "bradesco_extrato.csv")

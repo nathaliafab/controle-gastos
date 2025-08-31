@@ -64,6 +64,7 @@ class ProcessamentoExtrato(models.Model):
     
     # Bancos selecionados
     usar_c6 = models.BooleanField(default=False, verbose_name="C6 Bank")
+    usar_c6_cartao = models.BooleanField(default=False, verbose_name="C6 Cartão")
     usar_bradesco = models.BooleanField(default=False, verbose_name="Bradesco")
     usar_bb = models.BooleanField(default=False, verbose_name="Banco do Brasil")
     usar_bb_cartao = models.BooleanField(default=False, verbose_name="BB Cartão")
@@ -71,6 +72,7 @@ class ProcessamentoExtrato(models.Model):
     
     # Arquivos de extrato
     arquivo_c6 = models.FileField(upload_to=upload_to_secure_path, blank=True, null=True)
+    arquivo_c6_cartao = models.FileField(upload_to=upload_to_secure_path, blank=True, null=True)
     arquivo_bradesco = models.FileField(upload_to=upload_to_secure_path, blank=True, null=True)
     
     # Arquivo de configuração personalizado (opcional)
@@ -139,7 +141,7 @@ class ProcessamentoExtrato(models.Model):
                 raise ValidationError("CPF inválido")
         
         # Validar se pelo menos um banco está selecionado (apenas quando não há arquivo de configuração)
-        if not self.arquivo_config and not any([self.usar_c6, self.usar_bradesco, self.usar_bb, self.usar_bb_cartao, self.usar_itau]):
+        if not self.arquivo_config and not any([self.usar_c6, self.usar_c6_cartao, self.usar_bradesco, self.usar_bb, self.usar_bb_cartao, self.usar_itau]):
             raise ValidationError("Pelo menos um banco deve ser selecionado")
     
     def save(self, *args, **kwargs):
